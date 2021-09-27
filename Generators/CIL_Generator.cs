@@ -5,7 +5,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace KNR
+namespace PLC
 {
     public class CIL_Generator
     {
@@ -27,6 +27,10 @@ namespace KNR
         
         public ParsedProgram Program { get; set; }
 
+        public int Compile()
+        {
+            return 1;
+        }
         public IEnumerable<string> Generate()
         {
             yield return ".assembly extern mscorlib";

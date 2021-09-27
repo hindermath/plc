@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices.ComTypes;
 using System.Security.Authentication.ExtendedProtection;
 
-namespace KNR
+namespace PLC
 {
     public class PL0Generator
     {
@@ -27,6 +27,10 @@ namespace KNR
         
         public ParsedProgram Program { get; set; }
 
+        public int Compile()
+        {
+            return 1;
+        }
         public IEnumerable<string> Generate()
         {
             // Generate constant declarations

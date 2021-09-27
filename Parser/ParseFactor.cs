@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace KNR
+namespace PLC
 {
     public partial class Parser
     {

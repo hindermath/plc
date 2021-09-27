@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Policy;
 
-namespace KNR
+namespace PLC
 {
     public enum ConditionType
     {
@@ -26,6 +26,7 @@ namespace KNR
         }
         public Block Block;
         public List<Identity> Globals;
+        public bool UsesRand = false;
     }
 
     public class Identity

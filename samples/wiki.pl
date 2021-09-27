@@ -1,4 +1,3 @@
-CONST p = 10;
 VAR x, squ;
 
 PROCEDURE square;

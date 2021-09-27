@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace KNR
+namespace PLC
 {
     public partial class Optimizer
     {

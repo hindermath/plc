@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace KNR
+namespace PLC
 {
     public partial class Optimizer
     {

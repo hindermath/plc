@@ -8,7 +8,7 @@ using System.ComponentModel.Design.Serialization;
 using System.Runtime.InteropServices.ComTypes;
 using System.Security.Authentication.ExtendedProtection;
 
-namespace KNR
+namespace PLC
 {
     public class CSharpGenerator
     {
@@ -28,6 +28,10 @@ namespace KNR
         
         public ParsedProgram Program { get; set; }
 
+        public int Compile()
+        {
+            return 1;
+        }
         public IEnumerable<string> Generate()
         {
             yield return "using System;";

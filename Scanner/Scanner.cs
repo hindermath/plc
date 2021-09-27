@@ -4,7 +4,7 @@ using System.Text;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace KNR
+namespace PLC
 {
     public class Scanner {
         IEnumerator<char> enumerator;

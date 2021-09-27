@@ -3,7 +3,7 @@ using System.Net;
 
 #nullable enable
 
-namespace KNR
+namespace PLC
 {
     public partial class Parser
     {

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices.ComTypes;
 using System.Security.Authentication.ExtendedProtection;
 
-namespace KNR
+namespace PLC
 {
     public class BasicGenerator
     {
@@ -19,6 +19,11 @@ namespace KNR
             GosubTable = new Dictionary<string, int>();
         }
         public ParsedProgram Program { get; set; }
+
+        public int Compile()
+        {
+            return 1;
+        }
 
         public IEnumerable<string> Generate()
         {

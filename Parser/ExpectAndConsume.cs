@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 
-namespace KNR
+namespace PLC
 {
     public partial class Parser
     {

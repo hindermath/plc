@@ -1,7 +1,7 @@
 #nullable enable
 using System.Linq;
 
-namespace KNR
+namespace PLC
 {
     public partial class Optimizer
     {

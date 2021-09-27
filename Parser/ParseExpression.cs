@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace KNR
+namespace PLC
 {
     public partial class Parser
     {
@@ -12,6 +12,7 @@ namespace KNR
                 RandExpression r = new();
                 r.LowExpression = ParseExpression();
                 r.HighExpression = ParseExpression();
+                Program.UsesRand = true;
 
                 return r;
             }

@@ -2,7 +2,7 @@
 using System.IO;
 using System.Collections.Generic;
 
-namespace KNR
+namespace PLC
 {
     class Program
     {
@@ -24,6 +24,7 @@ namespace KNR
 
                 CIL_Generator generator = new(program);
                 foreach (string s in generator.Generate()) Console.WriteLine(s);
+                generator.Compile();
             }
         }
         

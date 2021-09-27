@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Generic;
 
-namespace KNR
+namespace PLC
 {
     public class CLRGenerator
     {
@@ -22,7 +22,7 @@ namespace KNR
         private readonly TypeBuilder _typeBuilder;
         private MethodBuilder _methodBuilder;
 
-        public CLRGenerator(ParsedProgram program)
+        public CLRGenerator(ParsedProgram program, string moduleName = "program")
         {
             Program = program;
             foreach (Identity constant in program.Block.Constants) {
@@ -31,7 +31,6 @@ namespace KNR
             foreach (Identity variable in program.Block.Variables) {
                 program.Globals.Add(variable);
             }
-            string moduleName = "program";
             _moduleName = moduleName;
             if (Path.GetFileName(moduleName) != moduleName)
             {
@@ -51,7 +50,11 @@ namespace KNR
 
         public IEnumerable<string> Generate()
         {
-            yield return "";
+            yield return "Text output is not available for this back-end -- call Compile() to generate a binary";
+        }
+
+        public int Compile()
+        {
             // Generate constant declarations
             foreach (Identity constant in Program.Block.Constants) {
                 var fieldBuilder = _typeBuilder.DefineField(constant.Name, typeof(int), FieldAttributes.Static | FieldAttributes.Private | FieldAttributes.Literal);
@@ -79,6 +82,8 @@ namespace KNR
             _typeBuilder.CreateType();
             _modb.CreateGlobalFunctions();
             _asmb.Save(_moduleName);
+
+            return 0; // Success!!
         }
 
         void GenerateProcedure(Procedure proc, bool procIsEntryPoint = false)
