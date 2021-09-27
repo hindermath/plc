@@ -1,7 +1,6 @@
 //#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Security.Policy;
 
 namespace PLC
 {
@@ -17,6 +16,7 @@ namespace PLC
         GreaterThan,
         GreaterThanOrEqual
     };
+
     public class ParsedProgram
     {
         public ParsedProgram()
@@ -24,6 +24,7 @@ namespace PLC
             Block = new Block();
             Globals = new List<Identity>();
         }
+
         public Block Block;
         public List<Identity> Globals;
         public bool UsesRand = false;
@@ -53,6 +54,7 @@ namespace PLC
             Variables = new List<Identity>();
             Procedures = new List<Procedure>();
         }
+
         public List<Identity> Constants;
         public List<Identity> Variables;
         public List<Procedure> Procedures;
@@ -66,7 +68,8 @@ namespace PLC
         public int CallCount = 0;
         public List<Identity> Locals;
 
-        public Procedure() {
+        public Procedure()
+        {
             Locals = new List<Identity>();
         }
     }
@@ -75,15 +78,12 @@ namespace PLC
     {
         public bool CallsProcedure { get; }
     }
-    
+
     public class Statement : IStatement
     {
         public virtual bool CallsProcedure
         {
-            get
-            {
-                return false;
-            }
+            get { return false; }
         }
 
         public bool SkipGeneration = false;
@@ -101,13 +101,10 @@ namespace PLC
     {
         public string IdentityName = String.Empty;
         public Expression Expression;
-        
+
         public override bool CallsProcedure
         {
-            get
-            {
-                return false;
-            }
+            get { return false; }
         }
     }
 
@@ -117,10 +114,7 @@ namespace PLC
 
         public override bool CallsProcedure
         {
-            get
-            {
-                return true;
-            }
+            get { return true; }
         }
     }
 
@@ -142,6 +136,7 @@ namespace PLC
         {
             Statements = new List<Statement>();
         }
+
         public List<Statement> Statements;
 
         public override bool CallsProcedure
@@ -152,12 +147,10 @@ namespace PLC
                 {
                     if (s.CallsProcedure == true) return true;
                 }
-
                 return false;
             }
         }
     }
-
     public class IfStatement : Statement
     {
         public Condition Condition;
@@ -165,13 +158,9 @@ namespace PLC
 
         public override bool CallsProcedure
         {
-            get
-            {
-                return Statement.CallsProcedure;
-            }
+            get { return Statement.CallsProcedure; }
         }
     }
-
     public abstract class LoopStatement : Statement
     {
         public Statement Statement { get; set; }
@@ -183,42 +172,36 @@ namespace PLC
 
         public override bool CallsProcedure
         {
-            get
-            {
-                return Statement.CallsProcedure;
-            }
+            get { return Statement.CallsProcedure; }
         }
     }
-    
-        public class DoWhileStatement : LoopStatement
+
+    public class DoWhileStatement : LoopStatement
+    {
+        public Condition Condition;
+
+        public override bool CallsProcedure
         {
-            public Condition Condition;
-
-            public override bool CallsProcedure
-            {
-                get
-                {
-                    return Statement.CallsProcedure;
-                }
-            }
+            get { return Statement.CallsProcedure; }
         }
+    }
 
-        public class Condition
+    public class Condition
+    {
+        public ConditionType Type { get; set; }
+    }
+
+    public class OddCondition : Condition
+    {
+        public Expression Expression;
+
+        public OddCondition()
         {
-            public ConditionType Type { get; set; }
+            Type = ConditionType.Odd;
         }
+    }
 
-        public class OddCondition : Condition
-        {
-            public Expression Expression;
-
-            public OddCondition()
-            {
-                Type = ConditionType.Odd;
-            }
-        }
-
-        public class BinaryCondition : Condition
+    public class BinaryCondition : Condition
     {
         public Expression FirstExpression;
         public Expression SecondExpression;
@@ -239,27 +222,24 @@ namespace PLC
             Type = ConditionType.False;
         }
     }
+
     public class Term
     {
         public Term()
         {
             TermNodes = new List<TermNode>();
         }
+
         public List<TermNode> TermNodes;
 
         public Factor FirstFactor
         {
-            get
-            {
-                return TermNodes[0].Factor;
-            }
+            get { return TermNodes[0].Factor; }
         }
+
         public bool IsSingleFactor
         {
-            get
-            {
-                return TermNodes.Count == 1;
-            }
+            get { return TermNodes.Count == 1; }
         }
 
         public bool IsSingleConstantFactor
@@ -306,16 +286,14 @@ namespace PLC
                 {
                     return false;
                 }
+
                 return Term.IsSingleConstantFactor;
             }
         }
 
         public bool RepresentsBinaryExpression
         {
-            get
-            {
-                return Term.TermNodes.Count == 2;
-            }
+            get { return Term.TermNodes.Count == 2; }
         }
     }
 
@@ -325,8 +303,9 @@ namespace PLC
         {
             ExpressionNodes = new List<ExpressionNode>();
         }
+
         public List<ExpressionNode> ExpressionNodes;
-        
+
         public virtual bool IsSingleTerm
         {
             get
@@ -338,6 +317,7 @@ namespace PLC
                         return true;
                     }
                 }
+
                 return false;
             }
         }
@@ -362,63 +342,7 @@ namespace PLC
         public Expression HighExpression { get; set; }
     }
 
-    public class ConstantExpression : Expression
-    {
-        public ConstantExpression(string constant, bool positive = true)
-        {
-            ConstantFactor factor = new() {Value = constant};
-            TermNode tn = new() {Factor = factor, IsDivision = false};
-            Term term = new();
-            term.TermNodes.Add(tn);
-            ExpressionNode en = new() {Term = term, IsPositive = positive};
-            ExpressionNodes.Add(en);
-        }
-        public override bool IsSingleTerm
-        {
-            get
-            {
-                return true;
-            }
-        }
-
-        public override bool IsSingleConstantFactor
-        {
-            get
-            {
-                return true;
-            }
-        }
-    }
-    
-    public class SingleIdentityExpression : Expression
-    {
-        public SingleIdentityExpression(string identityName)
-        {
-            IdentityFactor factor = new() {IdentityName = identityName};
-            TermNode tn = new() {Factor = factor, IsDivision = false};
-            Term term = new();
-            term.TermNodes.Add(tn);
-            ExpressionNode en = new() {Term = term, IsPositive = true};
-            ExpressionNodes.Add(en);
-        }
-        public override bool IsSingleTerm
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        public override bool IsSingleConstantFactor
-        {
-            get
-            {
-                return false;
-            }
-        }
-    }
-
-    public class Factor
+    public abstract class Factor
     {
     }
 
@@ -438,11 +362,7 @@ namespace PLC
         {
             Expression = new Expression();
         }
+
         public Expression Expression;
     }
 }
-    
-    
-    
-    
-    
