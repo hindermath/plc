@@ -16,13 +16,13 @@ namespace PLC
             }
             else
             {
-                filename = @"test.pl";
+                filename = @"test.p";
             }
             using (var fileStream = new FileStream(filename, FileMode.Open)) {
                 ParsedProgram program = new Parser().Parse(new Scanner().Scan(fileStream));
                 program = new Optimizer().Optimize(program);
 
-                CIL_Generator generator = new(program);
+                CLRGenerator generator = new(program);
                 foreach (string s in generator.Generate()) Console.WriteLine(s);
                 generator.Compile();
             }
