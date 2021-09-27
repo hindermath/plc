@@ -93,7 +93,7 @@ namespace PLC
                         BinaryCondition bc = new() {
                             FirstExpression = indexVariableExpression, 
                             SecondExpression = endExpression, 
-                            Type = ConditionType.LessThan
+                            Type = ConditionType.LessThanOrEqual
                         };
                         whileStatement.Condition = bc;
                         
