@@ -82,7 +82,7 @@ namespace PLC
 
             yield return lineNumber + " REM END";
         }
-        public IEnumerable<string> GenerateBlock(Block block)
+        IEnumerable<string> GenerateBlock(Block block)
         {
             string constants = GenerateConstantDeclarations(block.Constants);
             if (constants != String.Empty)
@@ -124,7 +124,7 @@ namespace PLC
             */
         }
 
-        public string GenerateConstantDeclarations(List<Identity> constants)
+        string GenerateConstantDeclarations(List<Identity> constants)
         {
             int c = constants.Count;
             if (c == 0)
@@ -149,36 +149,7 @@ namespace PLC
             sb.Append(";");
             return sb.ToString();
         }
-
-        public string GenerateVariableDeclarations(List<Identity> variables)
-        {
-            int c = variables.Count;
-            if (c == 0)
-            {
-                return String.Empty;
-            }
-
-            StringBuilder sb = new();
-            sb.Append("VAR ");
-            var enumerator = variables.GetEnumerator();
-            bool keepGoing = enumerator.MoveNext();
-            while (keepGoing)
-            {
-                sb.Append(enumerator.Current.Name);
-                if (enumerator.MoveNext())
-                {
-                    sb.Append(", ");
-                }
-                else
-                {
-                    keepGoing = false;
-                }
-            }
-            sb.Append(";");
-            return sb.ToString();
-        }
-
-        public IEnumerable<string> GenerateStatement(Statement statement)
+        IEnumerable<string> GenerateStatement(Statement statement)
         {
             if (statement is WriteStatement)
             {
@@ -306,7 +277,7 @@ namespace PLC
             }
         }
 
-        public string GenerateExpression(Expression expression)
+        string GenerateExpression(Expression expression)
         {
             if (expression is RandExpression)
             {
@@ -331,7 +302,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateRandExpression(RandExpression r)
+        string GenerateRandExpression(RandExpression r)
         {
             string low = GenerateExpression(r.LowExpression);
             string high = GenerateExpression(r.HighExpression);
@@ -347,7 +318,7 @@ namespace PLC
             return  (node.IsPositive ? "+" : "-") + GenerateTerm(node.Term);
         }
         
-        public string GenerateTerm(Term term)
+        string GenerateTerm(Term term)
         {
             StringBuilder sb = new();
             var te = term.TermNodes.GetEnumerator();
@@ -361,7 +332,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateFactor(Factor factor)
+        string GenerateFactor(Factor factor)
         {
             if (factor == null)
             {
