@@ -17,8 +17,7 @@ namespace PLC
         public ParsedProgram Optimize(ParsedProgram program)
         {
             _block = program.Block;
-            program.Block = OptimzeBlock(_block);
-
+            
             List<Procedure> procsToRemove = new();
             foreach (var proc in _block.Procedures)
             {
@@ -26,6 +25,7 @@ namespace PLC
                 proc.Block = OptimzeBlock(proc.Block);
                 OptimzeProcedureTailCall(proc);
             }
+            program.Block = OptimzeBlock(_block);
 
             foreach (var proc in _block.Procedures)
             {
@@ -71,8 +71,6 @@ namespace PLC
             {
                 _block.Variables.Remove(variable);
             }
-
-            program.Block = OptimzeBlock(_block);
             return program;
         }
 
