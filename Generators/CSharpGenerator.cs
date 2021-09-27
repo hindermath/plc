@@ -385,7 +385,7 @@ namespace PLC
                 return "false";
             case ConditionType.Odd:
                 var oddCondition = (OddCondition) condition;
-                return "(" + GenerateExpression(oddCondition.Expression) + " % 2) != 0";
+                return "(" + GenerateExpression(oddCondition.Expression) + " & 1) == 1";
             default:
                 var binaryCondition = (BinaryCondition) condition;
                 StringBuilder sb = new();

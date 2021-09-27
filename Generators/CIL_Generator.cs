@@ -376,8 +376,8 @@ namespace PLC
                 {
                     yield return s;
                 }
-                yield return "ldc.i4.2";
-                yield return "rem";
+                yield return "ldc.i4.1";
+                yield return "and";
                 yield return "brtrue " + label;
             }
             else  // BinaryCondition
@@ -434,9 +434,8 @@ namespace PLC
                 {
                     yield return s;
                 }
-
-                yield return "ldc.i4.2";
-                yield return "rem";
+                yield return "ldc.i4.1";
+                yield return "and";
                 yield return "brfalse " + label;
             }
             else // BinaryCondition

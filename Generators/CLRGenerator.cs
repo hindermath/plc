@@ -36,8 +36,9 @@ namespace PLC
             {
                 throw new Exception("can only output into current directory!");
             }
-            var filename = Path.GetFileNameWithoutExtension(moduleName);
-            var asmName = new AssemblyName(filename);
+
+            string filename = Path.GetFileNameWithoutExtension(moduleName);
+            AssemblyName asmName = new(filename);
             _asmb = AppDomain.CurrentDomain.DefineDynamicAssembly(asmName, AssemblyBuilderAccess.Save);
             _modb = _asmb.DefineDynamicModule(moduleName);
             _typeBuilder = _modb.DefineType("plc");
@@ -247,8 +248,8 @@ namespace PLC
             {
                 var oc = (OddCondition) condition;
                 GenerateExpression(oc.Expression);
-                _il.Emit(OpCodes.Ldc_I4_2);
-                _il.Emit(OpCodes.Rem);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.And);
                 _il.Emit(OpCodes.Brtrue, label);
             }
             else  // BinaryCondition
@@ -296,8 +297,8 @@ namespace PLC
             {
                 var oc = (OddCondition) condition;
                 GenerateExpression(oc.Expression);
-                _il.Emit(OpCodes.Ldc_I4_2);
-                _il.Emit(OpCodes.Rem);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.And);
                 _il.Emit(OpCodes.Brfalse, label);
             }
             else // BinaryCondition
