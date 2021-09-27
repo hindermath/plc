@@ -98,18 +98,19 @@ namespace PLC
                         whileStatement.Condition = bc;
                         
                         Expression stepExpression;
+                        ExpressionNode identifierNode = new() {Term = indexVariableExpression.ExpressionNodes[0].Term};
                         if (current.Text == "STEP")
                         {
                             ExpectAndConsume("STEP");
                             stepExpression = ParseExpression();
+                            stepExpression.ExpressionNodes.Add(identifierNode);
                         }
                         else
                         {
                             stepExpression = new Expression();
+                            stepExpression.ExpressionNodes.Add(identifierNode);
                             stepExpression.ExpressionNodes.Add(new ConstantExpression("1").ExpressionNodes[0]);
                         }
-                        ExpressionNode identifierNode = new() {Term = indexVariableExpression.ExpressionNodes[0].Term};
-                        stepExpression.ExpressionNodes.Add(identifierNode);
                         AssignmentStatement incrementIndex = new() {IdentityName = identifierName, Expression = stepExpression};
 
                         ExpectAndConsume("DO");
