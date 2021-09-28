@@ -71,6 +71,9 @@ namespace PLC
             {
                 _block.Variables.Remove(variable);
             }
+            
+            program.Block = OptimzeBlock(_block);
+            program.Block.Constants.Clear();
             return program;
         }
 
