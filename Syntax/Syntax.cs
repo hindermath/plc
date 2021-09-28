@@ -1,6 +1,7 @@
 //#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace PLC
 {
@@ -331,6 +332,24 @@ namespace PLC
                     if (ExpressionNodes[0].Term.IsSingleConstantFactor) return true;
                 }
 
+                return false;
+            }
+        }
+
+        public virtual bool IsSingleIdentity
+        {
+            get
+            {
+                if (this.IsSingleTerm)
+                {
+                    if (ExpressionNodes[0].Term.IsSingleFactor)
+                    {
+                        if (ExpressionNodes[0].Term.FirstFactor is IdentityFactor)
+                        {
+                            return true;
+                        }
+                    }
+                }
                 return false;
             }
         }

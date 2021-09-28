@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Diagnostics.SymbolStore;
 
 namespace PLC
 {
@@ -20,11 +21,12 @@ namespace PLC
             {
                 optimizedStatements.Add(OptimizeStatement(s));
             }
-
+            EliminateIfAfterAssignToConstant(optimizedStatements);
             bs.Statements = optimizedStatements;
 
             return bs;
         }
+
         Statement OptimizeAssignmentStatement(AssignmentStatement s)
         {
             s.Expression = OptimizeExpression(s.Expression);
@@ -34,10 +36,13 @@ namespace PLC
                 identity.AssignmentCount++;
                 identity.AssignmentStatements.Add(s);
             }
-            catch { }
+            catch
+            {
+            }
 
             return s;
         }
+
         Statement OptimizeIfStatement(IfStatement iff)
         {
             iff.Statement = OptimizeStatement(iff.Statement);
@@ -51,8 +56,10 @@ namespace PLC
             {
                 return new EmptyStatement();
             }
+
             return iff;
         }
+
         Statement OptimizeWhileStatement(WhileStatement ws)
         {
             ws.Statement = OptimizeStatement(ws.Statement);
@@ -61,6 +68,7 @@ namespace PLC
             {
                 return new EmptyStatement();
             }
+
             // Perform Loop Inversion
             // Saves two jumps when exiting the loop
             DoWhileStatement dw = new();
@@ -71,11 +79,13 @@ namespace PLC
             {
                 return dw;
             }
+
             IfStatement iff = new();
             iff.Condition = ws.Condition;
             iff.Statement = dw;
             return iff;
         }
+
         Statement OptimizeDoWhileStatement(DoWhileStatement dw)
         {
             dw.Statement = OptimizeStatement(dw.Statement);
@@ -84,6 +94,7 @@ namespace PLC
             {
                 return dw.Statement;
             }
+
             return dw;
         }
 
@@ -99,12 +110,14 @@ namespace PLC
                 {
                     return result.Block.Statement;
                 }
+
                 result.CallCount++;
             }
             catch
             {
                 ;
             }
+
             return cs;
         }
 
@@ -114,6 +127,7 @@ namespace PLC
             {
                 ws.Expression = OptimizeExpression(ws.Expression);
             }
+
             return ws;
         }
 
@@ -149,6 +163,65 @@ namespace PLC
             if (statement is ReadStatement)
                 return OptimizeReadStatement((ReadStatement) statement);
             return statement;
+        }
+
+        // This looks for the pattern x := 1; IF x < 10 THEN ...
+        // If we know x fails this test, skip the IF
+        void EliminateIfAfterAssignToConstant(List<Statement> statements)
+        {
+            int oneLessThanTheEnd = statements.Count - 1;
+            for (int i = 0; i < oneLessThanTheEnd; i++)
+            {
+                Statement current = statements[i];
+                if (current is AssignmentStatement && (i < oneLessThanTheEnd) && statements[i + 1] is IfStatement)
+                {
+                    AssignmentStatement s1 = (AssignmentStatement) current;
+                    if (s1.Expression.IsSingleConstantFactor)
+                    {
+                        IfStatement s2 = (IfStatement) statements[i + 1];
+                        if (s2.Condition is BinaryCondition)
+                        {
+                            BinaryCondition bc1 = (BinaryCondition) s2.Condition;
+                            BinaryCondition bc2 = new()
+                            {
+                                FirstExpression = bc1.FirstExpression,
+                                SecondExpression = bc1.SecondExpression,
+                                Type = bc1.Type
+                            };
+                            if (bc2.FirstExpression.IsSingleIdentity && bc1.SecondExpression.IsSingleConstantFactor)
+                            {
+                                IdentityFactor factor =
+                                    (IdentityFactor) bc2.FirstExpression.ExpressionNodes[0].Term.FirstFactor;
+                                if (factor.IdentityName == s1.IdentityName)
+                                {
+                                    bc2.FirstExpression = s1.Expression;
+                                }
+                                
+                            }
+                            else if (bc2.FirstExpression.IsSingleConstantFactor && bc1.SecondExpression.IsSingleIdentity)
+                            {
+                                IdentityFactor factor =
+                                    (IdentityFactor) bc2.SecondExpression.ExpressionNodes[0].Term.FirstFactor;
+                                if (factor.IdentityName == s1.IdentityName)
+                                {
+                                    bc2.SecondExpression = s1.Expression;
+                                }
+                            }
+
+                            Condition cond = OptimizeCondition(bc2);
+                            if (cond.Type == ConditionType.True)
+                            {
+                                statements[i + 1] = s2.Statement;
+                            }
+
+                            if (cond.Type == ConditionType.False)
+                            {
+                                statements[i + 1] = new EmptyStatement();
+                            }
+                        }
+                    }
+                }  
+            }
         }
     }
 }
