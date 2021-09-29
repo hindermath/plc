@@ -10,19 +10,19 @@ namespace PLC
     {
         Statement OptimizeCompoundStatement(CompoundStatement bs)
         {
-            // Replace a block containing only one statement by the statement itself
-            if (bs.Statements.Count == 1)
-            {
-                return OptimizeStatement(bs.Statements[0]);
-            }
-
             List<Statement> optimizedStatements = new();
             foreach (Statement s in bs.Statements)
             {
                 optimizedStatements.Add(OptimizeStatement(s));
             }
-            EliminateIfAfterAssignToConstant(optimizedStatements);
+            EliminateIfAfterConstantAssignment(optimizedStatements);
             bs.Statements = optimizedStatements;
+
+            // Replace single statement CompoundStatement with that statement
+            if (bs.Statements.Count == 1)
+            {
+                return bs.Statements[0];
+            }
 
             return bs;
         }
@@ -79,7 +79,6 @@ namespace PLC
             {
                 return dw;
             }
-
             IfStatement iff = new();
             iff.Condition = ws.Condition;
             iff.Statement = dw;
@@ -164,63 +163,107 @@ namespace PLC
                 return OptimizeReadStatement((ReadStatement) statement);
             return statement;
         }
-
+        
+        
         // This looks for the pattern x := 1; IF x < 10 THEN ...
         // If we know x fails this test, skip the IF
-        void EliminateIfAfterAssignToConstant(List<Statement> statements)
+        void EliminateIfAfterConstantAssignment(List<Statement> statements)
         {
-            int oneLessThanTheEnd = statements.Count - 1;
-            for (int i = 0; i < oneLessThanTheEnd; i++)
+            List<AssignmentStatement> constantAssignments = new();
+            for (int i = 0; i < statements.Count; i++)
             {
-                Statement current = statements[i];
-                if (current is AssignmentStatement && (i < oneLessThanTheEnd) && statements[i + 1] is IfStatement)
+                Statement currentStatement = statements[i];
+                if (currentStatement is AssignmentStatement &&
+                    ((AssignmentStatement) currentStatement).Expression.IsSingleConstantFactor)
                 {
-                    AssignmentStatement s1 = (AssignmentStatement) current;
-                    if (s1.Expression.IsSingleConstantFactor)
+                    constantAssignments.Add((AssignmentStatement) currentStatement);
+                }
+                else if (currentStatement is IfStatement)
+                {
+                    IfStatement ifStatement = (IfStatement) currentStatement;
+                    if (ifStatement.Condition is BinaryCondition)
                     {
-                        IfStatement s2 = (IfStatement) statements[i + 1];
-                        if (s2.Condition is BinaryCondition)
+                        BinaryCondition bc1 = (BinaryCondition) ifStatement.Condition;
+                        BinaryCondition bc2 = new()
                         {
-                            BinaryCondition bc1 = (BinaryCondition) s2.Condition;
-                            BinaryCondition bc2 = new()
+                            FirstExpression = bc1.FirstExpression,
+                            SecondExpression = bc1.SecondExpression,
+                            Type = bc1.Type
+                        };
+                        for (int c = constantAssignments.Count - 1; c >= 0; c--)
+                        {
+                            AssignmentStatement currentAssignment = constantAssignments[c];
+                            if (bc2.FirstExpression.IsSingleIdentity)
                             {
-                                FirstExpression = bc1.FirstExpression,
-                                SecondExpression = bc1.SecondExpression,
-                                Type = bc1.Type
-                            };
-                            if (bc2.FirstExpression.IsSingleIdentity && bc1.SecondExpression.IsSingleConstantFactor)
-                            {
-                                IdentityFactor factor =
+                                IdentityFactor identityFactor =
                                     (IdentityFactor) bc2.FirstExpression.ExpressionNodes[0].Term.FirstFactor;
-                                if (factor.IdentityName == s1.IdentityName)
+                                if (currentAssignment.IdentityName == identityFactor.IdentityName)
                                 {
-                                    bc2.FirstExpression = s1.Expression;
+                                    bc2.FirstExpression = currentAssignment.Expression;
                                 }
-                                
                             }
-                            else if (bc2.FirstExpression.IsSingleConstantFactor && bc1.SecondExpression.IsSingleIdentity)
+                            if (bc2.SecondExpression.IsSingleIdentity)
                             {
-                                IdentityFactor factor =
+                                IdentityFactor identityFactor =
                                     (IdentityFactor) bc2.SecondExpression.ExpressionNodes[0].Term.FirstFactor;
-                                if (factor.IdentityName == s1.IdentityName)
+                                if (currentAssignment.IdentityName == identityFactor.IdentityName)
                                 {
-                                    bc2.SecondExpression = s1.Expression;
+                                    bc2.SecondExpression = currentAssignment.Expression;
                                 }
                             }
 
                             Condition cond = OptimizeCondition(bc2);
                             if (cond.Type == ConditionType.True)
                             {
-                                statements[i + 1] = s2.Statement;
+                                statements[i] = ifStatement.Statement;
+                                return;
                             }
 
                             if (cond.Type == ConditionType.False)
                             {
-                                statements[i + 1] = new EmptyStatement();
+                                statements[i] = new EmptyStatement();
+                                return;
                             }
                         }
                     }
-                }  
+                    else if (ifStatement.Condition.Type == ConditionType.Odd)
+                    {
+                        var oc1 = (OddCondition) ifStatement.Condition;
+                        OddCondition oc2 = new() {Expression = oc1.Expression};
+                        if (oc2.Expression.IsSingleIdentity)
+                        {
+                            IdentityFactor identityFactor =
+                                (IdentityFactor) oc2.Expression.ExpressionNodes[0].Term.FirstFactor;
+
+                            for (int c = constantAssignments.Count - 1; c >= 0; c--)
+                            {
+                                AssignmentStatement currentAssignment = constantAssignments[c];
+                                if (currentAssignment.IdentityName == identityFactor.IdentityName)
+                                {
+                                    oc2.Expression = currentAssignment.Expression;
+                                    Condition cond = OptimizeCondition(oc2);
+                                    if (cond.Type == ConditionType.True)
+                                    {
+                                        statements[i] = ifStatement.Statement;
+                                        return;
+                                    }
+
+                                    if (cond.Type == ConditionType.False)
+                                    {
+                                        statements[i] = new EmptyStatement();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    constantAssignments.Clear();
+                }
+                else
+                {
+                    constantAssignments.Clear();
+                }
             }
         }
     }
