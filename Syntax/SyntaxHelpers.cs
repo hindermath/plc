@@ -42,7 +42,7 @@ namespace PLC
 
         public override bool IsSingleTerm
         {
-            get { return false; }
+            get { return true; }
         }
 
         public override bool IsSingleConstantFactor
