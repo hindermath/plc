@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Net;
+using System.Text.RegularExpressions;
 
 #nullable enable
 
@@ -7,7 +8,7 @@ namespace PLC
 {
     public partial class Parser
     {
-        private Statement ParseStatement()
+        Statement ParseStatement()
         {
             switch (current.Text)
             {
@@ -78,59 +79,9 @@ namespace PLC
                     ExpectAndConsume("WHILE");
                     if (next.Text == ":=") // If := then this is a FOR statement
                     {
-                        CompoundStatement forStatement = new();
-                        string identifierName = ParseIdentifier();
-                        ExpectAndConsume(":=");
-                        var startExpression = ParseExpression();
-                        AssignmentStatement a = new() {IdentityName = identifierName, Expression = startExpression};
-                        forStatement.Statements.Add(a);
-                        WhileStatement whileStatement = new();
-                        forStatement.Statements.Add(whileStatement);
-                        
-                        ExpectAndConsume("TO");
-                        var endExpression = ParseExpression();
-                        var indexVariableExpression = new SingleIdentityExpression(identifierName);
-                        BinaryCondition bc = new() {
-                            FirstExpression = indexVariableExpression, 
-                            SecondExpression = endExpression, 
-                            Type = ConditionType.LessThanOrEqual
-                        };
-                        whileStatement.Condition = bc;
-                        
-                        Expression stepExpression;
-                        ExpressionNode identifierNode = new() {Term = indexVariableExpression.ExpressionNodes[0].Term};
-                        if (current.Text == "STEP")
-                        {
-                            ExpectAndConsume("STEP");
-                            stepExpression = ParseExpression();
-                            stepExpression.ExpressionNodes.Add(identifierNode);
-                        }
-                        else
-                        {
-                            stepExpression = new Expression();
-                            stepExpression.ExpressionNodes.Add(identifierNode);
-                            stepExpression.ExpressionNodes.Add(new ConstantExpression("1").ExpressionNodes[0]);
-                        }
-                        AssignmentStatement incrementIndex = new() {IdentityName = identifierName, Expression = stepExpression};
-
-                        ExpectAndConsume("DO");
-                        Statement body = ParseStatement();
-                        CompoundStatement compountStatement;
-                        if (body is CompoundStatement)
-                        {
-                            compountStatement = (CompoundStatement) body;
-                            compountStatement.Statements.Add(incrementIndex);
-                        }
-                        else
-                        {
-                            compountStatement = new CompoundStatement();
-                            compountStatement.Statements.Add(body);
-                            compountStatement.Statements.Add(incrementIndex);
-                        }
-                        whileStatement.Statement = compountStatement;
-                        return forStatement;
+                        return ParseForStaatement();
                     }
-                    else  // A simple WHILE statement
+                    else  // A traditional WHILE statement
                     {
                         WhileStatement ww = new();
                         ww.Condition = ParseCondition();
@@ -138,11 +89,9 @@ namespace PLC
                         ww.Statement = ParseStatement();
                         return ww;
                     }
-                /*
                 case ";":
-                    MatchTerminator();
-                    return ParseStatement();
-                */
+                    ExpectAndConsumeTerminator();
+                    return new EmptyStatement();
                 default: // Assignment
                     AssignmentStatement ass = new();
                     ass.IdentityName = ParseIdentifier();
@@ -150,6 +99,61 @@ namespace PLC
                     ass.Expression = ParseExpression();
                     return ass;
             }
+        }
+
+        Statement ParseForStaatement()
+        { 
+            CompoundStatement forStatement = new();
+            string identifierName = ParseIdentifier();
+            ExpectAndConsume(":=");
+            var startExpression = ParseExpression();
+            AssignmentStatement a = new() {IdentityName = identifierName, Expression = startExpression};
+            forStatement.Statements.Add(a);
+            WhileStatement whileStatement = new();
+            forStatement.Statements.Add(whileStatement);
+            
+            ExpectAndConsume("TO");
+            var endExpression = ParseExpression();
+            var indexVariableExpression = new SingleIdentityExpression(identifierName);
+            BinaryCondition bc = new() {
+                FirstExpression = indexVariableExpression, 
+                SecondExpression = endExpression, 
+                Type = ConditionType.LessThanOrEqual
+            };
+            whileStatement.Condition = bc;
+            
+            Expression stepExpression;
+            ExpressionNode identifierNode = new() {Term = indexVariableExpression.ExpressionNodes[0].Term};
+            if (current.Text == "STEP")
+            {
+                ExpectAndConsume("STEP");
+                stepExpression = ParseExpression();
+                stepExpression.ExpressionNodes.Add(identifierNode);
+            }
+            else
+            {
+                stepExpression = new Expression();
+                stepExpression.ExpressionNodes.Add(identifierNode);
+                stepExpression.ExpressionNodes.Add(new ConstantExpression("1").ExpressionNodes[0]);
+            }
+            AssignmentStatement incrementIndex = new() {IdentityName = identifierName, Expression = stepExpression};
+
+            ExpectAndConsume("DO");
+            Statement body = ParseStatement();
+            CompoundStatement compountStatement;
+            if (body is CompoundStatement)
+            {
+                compountStatement = (CompoundStatement) body;
+                compountStatement.Statements.Add(incrementIndex);
+            }
+            else
+            {
+                compountStatement = new CompoundStatement();
+                compountStatement.Statements.Add(body);
+                compountStatement.Statements.Add(incrementIndex);
+            }
+            whileStatement.Statement = compountStatement;
+            return forStatement;
         }
     }
 }
