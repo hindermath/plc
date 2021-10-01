@@ -21,7 +21,6 @@ namespace PLC
             List<Procedure> procsToRemove = new();
             foreach (var proc in _block.Procedures)
             {
-                //Console.WriteLine("Optimizing procedure " + proc.Name);
                 proc.Block = OptimzeBlock(proc.Block);
                 OptimzeProcedureTailCall(proc);
             }
@@ -40,43 +39,42 @@ namespace PLC
                 _block.Procedures.Remove(procToRemove);
             }
 
+            // CANNOT CALL THIS AGAIN AFTER MAKING SINGLE ASSIGNMENTS CONSTANT
+            program.Block = OptimzeBlock(_block);
+            
             List<Identity> variablesToRemove = new();
             foreach (var variable in _block.Variables)
             {
                 /*Console.WriteLine("{0} is assigned {1} times and called {2} times", variable.Name,
                     variable.AssignmentCount, variable.ReferenceCount);
                 */
-                if (variable.ReferenceCount == 00)
+                if (variable.ReferenceCount == 0)
                 {
                     variablesToRemove.Add(variable);
                 }
 
-                if (variable.AssignmentCount == 1)
+                if (variable.AssignmentCount == 1 && variable.AssignmentStatements.Count == 1)
                 {
                     var ass = variable.AssignmentStatements.First();
-                    //Console.WriteLine(ass.IdentityName);
                     if (ass.Expression.IsSingleConstantFactor)
                     {
                         ConstantFactor cf = (ConstantFactor) ass.Expression.ExpressionNodes[0].Term.TermNodes[0].Factor;
                         variable.Value = cf.Value;
-                        //Console.WriteLine("Making constant");
                         _block.Constants.Add(variable);
                         variablesToRemove.Add(variable);
                         ass.SkipGeneration = true;
                     }
                 }
             }
-
             foreach (var variable in variablesToRemove)
             {
                 _block.Variables.Remove(variable);
             }
             
-            program.Block = OptimzeBlock(_block);
             program.Block.Constants.Clear();
             return program;
-        }
-
+        }        
+        
         // Convert procedure call into a loop for a very specific case
         void OptimzeProcedureTailCall(Procedure proc)
         {
