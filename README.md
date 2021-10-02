@@ -3,6 +3,9 @@ Optimizing Multi-target Extended PL/0 Compiler for .NET written in C#.
 
 The compiler was written using the EBNF found on the PL/0 page of Wikipedia as of September 4, 2021. It is able to compile the three test programs found on that page. They can be found as `wiki.p`, `wiki2.p`, and `wiki3.p` in the `samples` directory. 
 
+This is Hello World in PLC
+
+    ! "Hello World!".
 ## Mutli-target
 The compiler takes PL/0 source code as input and generates C, C#, Basic, PL/0, CIL, or .NET assemblies as output.
 
@@ -25,36 +28,31 @@ The following PL/0 program ( first example on Wikipedia )
             x := x + 1
         END
     END.
-compiles to the following BASIC code ( with optimization on)
+compiles to the following BASIC code ( with optimization on )
 
     10 x = 1
-    20 squ = x*x
-    30 PRINT squ
-    40 x = x+1
-    50 IF x <= 10 GOTO 20
+    20 PRINT x*x
+    30 x = x+1
+    40 IF x <= 10 GOTO 20
 
 or to the following C# code
 
     using System;
     
     public class Program {
-        static int x, squ;
-    
+        static int x;
+
         public static void Main() {
             x = 1;
             do {
-                squ = x*x;
-                Console.WriteLine(squ);
+                Console.WriteLine(x*x);
                 x = x+1;
             } while (x<=10);
         }
     }
-
-
 or to these CIL instructions
 
     .field private static int32 x
-    .field private static int32 squ
 
     .method public hidebysig static void Main() cil managed
     {
@@ -66,8 +64,6 @@ or to these CIL instructions
         ldsfld int32 plc::x
         ldsfld int32 plc::x
         mul
-        stsfld int32 plc::squ
-        ldsfld int32 plc::squ
         call void [mscorlib]System.Console::WriteLine(int32)
         ldsfld int32 plc::x
         ldc.i4.1
@@ -83,15 +79,15 @@ All of the above produce the same output and are semantically equivalent. You ca
 
 Keen eyed optimizers may notice that the expression `x = x+1` was not converted to `x++` in the C# version. Increment does not exist at the CIL level and, even in C#, `x++`, `x += 1`, and `x = x + 1` all compile to identical CIL.
 
-Compiling the generated C# with the Microsoft compiler produces identical bytecode to the above ( `csc.exe` / .NET 6 RC1 ). That said, the C# compiler ( even when told to optimize ) produces much less optimized code when provided the C# equivalent of the original PL/0 ( without the PLC optimizations applied ).
+Compiling C# snippet above with the Microsoft compiler produces the same CIL instructions shown here ( `csc.exe` / .NET 6 RC1 ). That said, the C# compiler ( even when told to optimize ) produces substantially less optimized code than PLC when fed code that PLC has not optimized first.
 ## Extensions
-I have added a few additions on top of the base PL/0 syntax
+A few additions on top of the base PL/0 syntax
 ### WRITE statement
 Apparently the original version of PL/0 had no input or output instructions and so technically `WRITE` is an extension. That said, it was required to compile the example programs on the Wikipedia page. So too was the alias `!` which is treated as the same statement. Both of them take an expression whose evaluated results are written to the console. In the Wikipedia EBNF, the expression has to evaluate to an integer as PL/0 has only integer types. The `WRITE` in PLC has been extended to optionally take a string as input instead of an integer. This makes the following a valid PLC program ( it can be found as `hello.p` in the `samples` directory ).
 
     ! "Hello World!"
 ### READ statement
-As with `WRITE`, I needed to add `READ` to compile the Wikipedia examples as well as to add `?` as an alias. As with `WRITE` I added the ability to provide a string. The syntax of `READ` is `READ "string" identifier` where `'string"` is optional and `identifier` must be an integer. Non-integer entries are taken as zero.
+As with `WRITE`, I needed to add `READ` to compile the Wikipedia examples as well as to add `?` as an alias. As with `WRITE` I added the ability to provide a string. The syntax of `READ` is `READ "string" identifier` where `"string"` is optional and `identifier` must be an integer. Non-integer entries are taken as zero.
 ### DO WHILE statement
 This adds `DO condition WHILE statement`. Unlike a standard `WHILE` loop, the `DO` loop executes its statement at least once regardless of the condition. It was necessary to add this statement in order to implement loop inversion ( see the section on optimizations ). The `WHILE` segment is optional; skipping it results in an infinite loop.
 ### "FOR" statement
@@ -195,7 +191,7 @@ reduces to the following CIL
     .method public hidebysig static void Main() cil managed
     {
         .entrypoint
-        .maxstack 32
+        .maxstack 8
         ldc.i4.s 25
         call void [mscorlib]System.Console::WriteLine(int32)
         ret
@@ -230,9 +226,11 @@ becomes
     BEGIN
         IF 6 > x THEN ! "Hello World!"
     END.
-Since 6 > 5 is known to always be true, the IF statement can be skipped. If the condition were reversed ( to `<` ), then `! "Hello World!"` is unreachable which makes it dead code ( see below ).
+Since 6 > 5 is known to always be true, the IF statement can be replaced by the WRITE statement.
 
     WRITE "Hello World!".
+If the condition were reversed ( to `<` ), then `! "Hello World!"` is unreachable which makes it dead code ( see below ).
+
 A special case is when an IF or a WHILE comes right after a constant assignment.
 
     VAR x;
@@ -241,10 +239,6 @@ A special case is when an IF or a WHILE comes right after a constant assignment.
         IF 6 > x THEN ! "Hello World!"
     END.
 This pattern is common in loops including every PLC "FOR" loop. The same rules apply as per above.
-
-
-
-
 ### Dead Code Elimination
 The following PL/0 input
 
@@ -334,3 +328,43 @@ Here is the fully optimized version in BASIC
     20 PRINT x
     30 x = x+1
     40 IF x <= 10 GOTO 20
+### Tail Call Elimination
+In some instances, PLC is able to eliminate a recursive procedure call by replacing it with a loop. The procedure may then be inlined and removed.
+
+Before:
+
+    VAR n, f;
+    
+    PROCEDURE fact;
+    BEGIN
+        IF n > 1 THEN
+        BEGIN
+            f := n * f;
+            n := n - 1;
+            CALL fact
+        END
+    END;
+    
+    BEGIN
+        ? "Enter a number " n;
+        f := 1;
+        CALL fact;
+        !f
+    END.
+After:
+
+    VAR n, f;
+    
+    BEGIN
+        READ "Enter a number " n;
+        f := 1;
+        IF n > 1 THEN
+        DO
+        BEGIN
+            f := n*f;
+            n := n-1
+        END
+        WHILE n > 1;
+        WRITE f
+    END.
+The recursive call to `fact` has been replaced by a loop. The loop itself has been inverted as per the discussion above.
