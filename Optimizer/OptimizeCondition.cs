@@ -14,7 +14,7 @@ namespace PLC
                 {
                     ConstantFactor constant = (ConstantFactor) oc.Expression.ExpressionNodes[0].Term.FirstFactor;
                     int c = System.Int32.Parse(constant.Value);
-                    if ((c % 2) == 0)
+                    if ((c & 1) > 0)
                     {
                         return new FalseCondition();
                     }
