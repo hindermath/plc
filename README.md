@@ -89,7 +89,7 @@ Apparently the original version of PL/0 had no input or output instructions and 
 ### READ statement
 As with `WRITE`, I needed to add `READ` to compile the Wikipedia examples as well as to add `?` as an alias. As with `WRITE` I added the ability to provide a string. The syntax of `READ` is `READ "string" identifier` where `"string"` is optional and `identifier` must be an integer. Non-integer entries are taken as zero.
 ### DO WHILE statement
-This adds `DO condition WHILE statement`. Unlike a standard `WHILE` loop, the `DO` loop executes its statement at least once regardless of the condition. It was necessary to add this statement in order to implement loop inversion ( see the section on optimizations ). The `WHILE` segment is optional; skipping it results in an infinite loop.
+This adds `DO statement WHILE condition`. Unlike a standard `WHILE` loop, the `DO` loop executes its statement at least once regardless of the condition. It was necessary to add this statement in order to implement loop inversion ( see the section on optimizations ). The `WHILE` segment is optional; skipping it results in an infinite loop.
 ### "FOR" statement
 Inspired by the FOR command found in BASIC, PLC features a FOR loop of its own. Instead of adding a new keyword though, it is simply an alternative syntax for `WHILE`. The syntax is `WHILE identifier := exp1 TO exp2 STEP exp3` where `STEP` is optional. Note that the STEP can be an expression and not only a simple integer as it is in most BASIC versions.
 
