@@ -9,7 +9,7 @@ namespace PLC
         ExpressionNode OptimizeExpressionNode(ExpressionNode node)
         {
             node.Term = OptimizeTerm(node.Term);
-
+            
             // Try to get rid of multiplication by negative numbers
             if (node.RepresentsBinaryExpression)
             {

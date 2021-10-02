@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using System.Linq;
 using System.Collections.Generic;
 
@@ -33,41 +32,26 @@ namespace PLC
                     procsToRemove.Add(proc);
                 }
             }
-
             foreach (var procToRemove in procsToRemove)
             {
                 _block.Procedures.Remove(procToRemove);
             }
 
-            // CANNOT CALL THIS AGAIN AFTER MAKING SINGLE ASSIGNMENTS CONSTANT
-            program.Block = OptimzeBlock(_block);
-            
             List<Identity> variablesToRemove = new();
             foreach (var variable in _block.Variables)
             {
-                /*Console.WriteLine("{0} is assigned {1} times and called {2} times", variable.Name,
-                    variable.AssignmentCount, variable.ReferenceCount);
-                */
+                //Console.WriteLine("{0} is assigned {1} times and called {2} times", variable.Name, variable.AssignmentCount, variable.ReferenceCount);
                 if (variable.ReferenceCount == 0)
                 {
                     variablesToRemove.Add(variable);
                 }
-
-                if (variable.AssignmentCount == 1 && variable.AssignmentStatements.Count == 1)
-                {
-                    var ass = variable.AssignmentStatements.First();
-                    if (ass.Expression.IsSingleConstantFactor)
-                    {
-                        ConstantFactor cf = (ConstantFactor) ass.Expression.ExpressionNodes[0].Term.TermNodes[0].Factor;
-                        variable.Value = cf.Value;
-                        _block.Constants.Add(variable);
-                        variablesToRemove.Add(variable);
-                        ass.SkipGeneration = true;
-                    }
-                }
             }
             foreach (var variable in variablesToRemove)
             {
+                foreach (AssignmentStatement s in variable.AssignmentStatements)
+                {
+                    s.SkipGeneration = true;
+                }
                 _block.Variables.Remove(variable);
             }
             

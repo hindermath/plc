@@ -1,7 +1,6 @@
 //#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace PLC
 {
@@ -35,7 +34,6 @@ namespace PLC
     {
         public string Name = String.Empty;
         public string Value = String.Empty;
-        public int AssignmentCount = 0;
         public int ReferenceCount = 0;
         public List<IdentityFactor> IdentityFactors;
         public List<AssignmentStatement> AssignmentStatements;
@@ -247,11 +245,10 @@ namespace PLC
         {
             get
             {
-                if (TermNodes.Count == 1)
+                if (IsSingleFactor)
                 {
                     if (FirstFactor is ConstantFactor) return true;
                 }
-
                 return false;
             }
         }
@@ -287,7 +284,6 @@ namespace PLC
                 {
                     return false;
                 }
-
                 return Term.IsSingleConstantFactor;
             }
         }
@@ -318,7 +314,6 @@ namespace PLC
                         return true;
                     }
                 }
-
                 return false;
             }
         }
@@ -331,7 +326,6 @@ namespace PLC
                 {
                     if (ExpressionNodes[0].Term.IsSingleConstantFactor) return true;
                 }
-
                 return false;
             }
         }

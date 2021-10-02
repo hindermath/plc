@@ -15,7 +15,9 @@ namespace PLC
             {
                 optimizedStatements.Add(OptimizeStatement(s));
             }
-            EliminateIfAfterConstantAssignment(optimizedStatements);
+
+            OptimizeIfAfterConstantAssignment(optimizedStatements);
+            OptimizeWriteAfterAssignment(optimizedStatements);
             bs.Statements = optimizedStatements;
 
             // Replace single statement CompoundStatement with that statement
@@ -33,7 +35,6 @@ namespace PLC
             try
             {
                 Identity identity = _block.Variables.Single(x => x.Name == s.IdentityName);
-                identity.AssignmentCount++;
                 identity.AssignmentStatements.Add(s);
             }
             catch
@@ -79,6 +80,7 @@ namespace PLC
             {
                 return dw;
             }
+
             IfStatement iff = new();
             iff.Condition = ws.Condition;
             iff.Statement = dw;
@@ -132,13 +134,15 @@ namespace PLC
 
         Statement OptimizeReadStatement(ReadStatement rs)
         {
-            /*
             try
             {
                 Identity identity = _block.Variables.Single(x => x.Name == rs.IdentityName);
-                identity.AssignmentCount++;
-            } catch { }
-            */
+                identity.ReferenceCount++;
+            }
+            catch
+            {
+                Console.Error.WriteLine("Could not locate variable " + rs.IdentityName);
+            }
 
             return rs;
         }
@@ -164,23 +168,80 @@ namespace PLC
             return statement;
         }
         
-        
+        // This looks for WRITE after assignment
+        void OptimizeWriteAfterAssignment(List<Statement> statements)
+        {
+            List<AssignmentStatement> assignments = new();
+            foreach (Statement statement in statements)
+            {
+                if (statement is AssignmentStatement)
+                {
+                    assignments.Add((AssignmentStatement) statement);
+                }
+                else if (statement is WriteStatement)
+                {
+                    WriteStatement w = (WriteStatement) statement;
+                    if (w.Expression.IsSingleIdentity)
+                    {
+                        IdentityFactor identityFactor =
+                            (IdentityFactor) w.Expression.ExpressionNodes[0].Term.FirstFactor;
+                        foreach (AssignmentStatement a in assignments)
+                        {
+                            if (a.IdentityName == identityFactor.IdentityName)
+                            {
+                                w.Expression = a.Expression;
+                                try
+                                {
+                                    Identity identity = _block.Variables.Single(x => x.Name == identityFactor.IdentityName);
+                                    identity.ReferenceCount--;
+                                }
+                                catch
+                                {
+                                    Console.Error.WriteLine("Could not locate variable " + identityFactor.IdentityName);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Anything but EmptyStatement and WRITE can change variables after assignment
+                    // Clear all the previously registered assignments as they may no longer be valid
+                    if (!(statement is EmptyStatement))
+                    {
+                        assignments.Clear();
+                    }
+                }
+            }
+        }
+
         // This looks for the pattern x := 1; IF x < 10 THEN ...
         // If we know x fails this test, skip the IF
-        void EliminateIfAfterConstantAssignment(List<Statement> statements)
+        void OptimizeIfAfterConstantAssignment(List<Statement> statements)
         {
             List<AssignmentStatement> constantAssignments = new();
+            // Create phantom assignments for all variables setting them to zero
+            // These will get overridden by any actual assignment statements later
+            /*
+             * Cannot do this inside PROCEDURES - only inside Main
+             * 
+            foreach (Identity variable in _block.Variables)
+            {
+                constantAssignments.Add(new AssignmentStatement() { IdentityName = variable.Name, Expression = new ConstantExpression("0")});
+            }
+            */
             for (int i = 0; i < statements.Count; i++)
             {
                 Statement currentStatement = statements[i];
-                if (currentStatement is AssignmentStatement &&
-                    ((AssignmentStatement) currentStatement).Expression.IsSingleConstantFactor)
+                if ((currentStatement is AssignmentStatement &&
+                     ((AssignmentStatement) currentStatement).Expression.IsSingleConstantFactor))
                 {
                     constantAssignments.Add((AssignmentStatement) currentStatement);
                 }
                 else if (currentStatement is IfStatement)
                 {
                     IfStatement ifStatement = (IfStatement) currentStatement;
+                    bool keepAssignments = false;
                     if (ifStatement.Condition is BinaryCondition)
                     {
                         BinaryCondition bc1 = (BinaryCondition) ifStatement.Condition;
@@ -202,6 +263,7 @@ namespace PLC
                                     bc2.FirstExpression = currentAssignment.Expression;
                                 }
                             }
+
                             if (bc2.SecondExpression.IsSingleIdentity)
                             {
                                 IdentityFactor identityFactor =
@@ -216,13 +278,14 @@ namespace PLC
                             if (cond.Type == ConditionType.True)
                             {
                                 statements[i] = ifStatement.Statement;
-                                return;
+                                // Variables may have been changed after assignment
+                                // Unless there are only WRITE statements or empty statements in between
+                                keepAssignments = (ifStatement.Statement is EmptyStatement) || (ifStatement.Statement is WriteStatement);
                             }
-
                             if (cond.Type == ConditionType.False)
                             {
                                 statements[i] = new EmptyStatement();
-                                return;
+                                keepAssignments = true;
                             }
                         }
                     }
@@ -245,24 +308,35 @@ namespace PLC
                                     if (cond.Type == ConditionType.True)
                                     {
                                         statements[i] = ifStatement.Statement;
-                                        return;
+                                        // Variables may have been changed after assignment
+                                        // Unless there are only WRITE statements or empty statements in between
+                                        keepAssignments = (statements[i] is EmptyStatement) || (statements[i] is WriteStatement);
                                     }
 
                                     if (cond.Type == ConditionType.False)
                                     {
                                         statements[i] = new EmptyStatement();
-                                        return;
+                                        keepAssignments = true;
                                     }
                                 }
                             }
                         }
                     }
-
-                    constantAssignments.Clear();
+                    if (!keepAssignments)
+                    {
+                        constantAssignments.Clear();
+                        // TODO: Instead of clearing them all, identify which variables may have changed
+                    }
                 }
                 else
                 {
-                    constantAssignments.Clear();
+                    // We are here because currentStatement is not an Assignment or an IF
+                    // Anything but EmptyStatement and WRITE can change variables after assignment
+                    // Clear all the previously registered assignments as they may no longer be valid
+                    if (!((currentStatement is EmptyStatement) || (currentStatement is WriteStatement)))
+                    {
+                        constantAssignments.Clear();
+                    }
                 }
             }
         }
