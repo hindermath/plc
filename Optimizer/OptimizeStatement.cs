@@ -181,7 +181,7 @@ namespace PLC
                 else if (statement is WriteStatement)
                 {
                     WriteStatement w = (WriteStatement) statement;
-                    if (w.Expression.IsSingleIdentity)
+                    if (String.IsNullOrEmpty(w.Message) && w.Expression.IsSingleIdentity)
                     {
                         IdentityFactor identityFactor =
                             (IdentityFactor) w.Expression.ExpressionNodes[0].Term.FirstFactor;
