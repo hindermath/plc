@@ -1,18 +1,15 @@
 #nullable enable
 using System;
-using System.IO;
 using System.Text;
 using System.Linq;
 using System.Collections.Generic;
-using System.Runtime.InteropServices.ComTypes;
-using System.Security.Authentication.ExtendedProtection;
 
 namespace PLC
 {
-    public class BasicGenerator
+    public class BasicGenerator : IGenerator
     {
-        private int lineNumber = 10;
-        private readonly Dictionary<string, int> GosubTable;
+        int lineNumber = 10;
+        readonly Dictionary<string, int> GosubTable;
         public BasicGenerator(ParsedProgram program)
         {
             Program = program;
@@ -20,7 +17,7 @@ namespace PLC
         }
         public ParsedProgram Program { get; set; }
 
-        public int Compile()
+        public int Compile(string filename)
         {
             return 1;
         }
@@ -33,29 +30,8 @@ namespace PLC
                 yield return lineNumber + " LET " + i.Name + " = " + i.Value;
                 lineNumber += 10;
             }
-            /*
-            // Variable declarations
-            var variables = Program.Block.Variables;
-            c = variables.Count;
-            if (c != 0)
-            {
-                StringBuilder sb = new();
-                sb.Append("VAR ");
-                for (int i = 0; i < c; i++)
-                {
-                    sb.Append(variables.ElementAt(i).Name);
-                    if (i < (c - 1))
-                    {
-                        sb.Append(", ");
-                    }
-                }
 
-                sb.Append(";");
-                yield return sb.ToString();
-                yield return String.Empty; // Just makes it look prettier
-            }
-            */
-            
+            // Generate Procedures
             foreach (Procedure method in Program.Block.Procedures)
             {
                 int gotoLine = lineNumber;
@@ -79,7 +55,7 @@ namespace PLC
             {
                 yield return s;
             }
-
+            // Needed in case something tries to GOTO past the last line
             yield return lineNumber + " REM END";
         }
         IEnumerable<string> GenerateBlock(Block block)
@@ -89,39 +65,10 @@ namespace PLC
             {
                 yield return constants;
             }
-
-            /*
-            string variables = GenerateVariableDeclarations(block.Variables);
-            if (variables != String.Empty)
-            {
-                yield return variables;
-            }
-            */
-
             foreach (string s in GenerateStatement(block.Statement))
             {
                 yield return s;
             }
-            /*
-            var lines = GenerateStatement(block.Statement);
-            
-            yield return "BEGIN";
-            var enumerator = GenerateStatement(block.Statement).GetEnumerator();
-            bool keepGoing = enumerator.MoveNext();
-            while (keepGoing)
-            {
-                string currentLine = enumerator.Current;
-                if (enumerator.MoveNext())
-                {
-                    yield return "    " + currentLine + ";";
-                } else
-                {
-                    keepGoing = false;
-                    yield return "    " + currentLine;
-                }
-            }
-            yield return "END";
-            */
         }
 
         string GenerateConstantDeclarations(List<Identity> constants)

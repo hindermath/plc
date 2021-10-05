@@ -3,23 +3,26 @@ using System;
 using System.Text;
 using System.Linq;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace PLC
 {
-    public class CIL_Generator
+    public class CIL_Generator : IGenerator
     {
-        private Procedure main = new Procedure() { Name = "Main" };
-        private Procedure _proc;
-        private Dictionary<string, int> Prefixes = new();
+        Procedure main = new Procedure() { Name = "Main" };
+        Procedure _proc;
+        Dictionary<string, int> Prefixes = new();
 
         public CIL_Generator(ParsedProgram program)
         {
             Program = program;
-            foreach (Identity constant in program.Block.Constants) {
+            foreach (Identity constant in program.Block.Constants)
+            {
+                constant.Name = NameWithoutCollisions(constant.Name);
                 program.Globals.Add(constant);
             }
-            foreach (Identity variable in program.Block.Variables) {
+            foreach (Identity variable in program.Block.Variables)
+            {
+                variable.Name = NameWithoutCollisions(variable.Name);
                 program.Globals.Add(variable);
             }
             _proc = main;
@@ -27,17 +30,13 @@ namespace PLC
         
         public ParsedProgram Program { get; set; }
 
-        public int Compile()
+        public int Compile(string filename)
         {
             return 1;
         }
         public IEnumerable<string> Generate()
         {
-            yield return ".assembly extern mscorlib";
-            yield return "{";
-            yield return "    .publickeytoken = (B7 7A 5C 56 19 34 E0 89 )";
-            yield return "    .ver 4:0:0:0";
-            yield return "}";
+            yield return ".assembly extern mscorlib { }";
             yield return "";
             yield return ".assembly Program { }";
             yield return "";
@@ -99,7 +98,7 @@ namespace PLC
             
             yield return "}";
         }
-        public IEnumerable<string> GenerateBlock(Block block)
+        IEnumerable<string> GenerateBlock(Block block)
         {
             string constants = GenerateConstantDeclarations(block.Constants);
             if (constants != String.Empty)
@@ -123,7 +122,7 @@ namespace PLC
             }
         }
 
-        public string GenerateConstantDeclarations(List<Identity> constants)
+        string GenerateConstantDeclarations(List<Identity> constants)
         {
             int c = constants.Count;
             if (c == 0)
@@ -149,7 +148,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateVariableDeclarations(List<Identity> variables)
+        string GenerateVariableDeclarations(List<Identity> variables)
         {
             int c = variables.Count;
             if (c == 0)
@@ -180,7 +179,7 @@ namespace PLC
             return sb.ToString();
         }
         
-        public string GenerateLabel(string prefix)
+        string GenerateLabel(string prefix)
         {
             if (Prefixes.ContainsKey(prefix))
             {
@@ -193,7 +192,7 @@ namespace PLC
 
             return prefix + Prefixes[prefix];
         }
-        public IEnumerable<string> GenerateStatement(Statement statement)
+        IEnumerable<string> GenerateStatement(Statement statement)
         {
             if (statement is WriteStatement)
             {
@@ -222,6 +221,7 @@ namespace PLC
                 }
                 yield return "call string [mscorlib]System.Console::ReadLine()";
                 string result;
+                readStatement.IdentityName = NameWithoutCollisions(readStatement.IdentityName);
                 if (_proc.Locals.Exists(i => i.Name == readStatement.IdentityName))
                 {
                     result = "ldloca " + readStatement.IdentityName;
@@ -313,27 +313,37 @@ namespace PLC
                 //yield return "nop";
             }
         }
+        string NameWithoutCollisions(string identifierName)
+        {
+            switch (identifierName)
+            {
+                case "ret":
+                    return "'ret'";
+                case "add":
+                    return "'add'";
+                case "sub":
+                    return "'sub'";
+                case "mul":
+                    return "'mul'";
+                case "div":
+                    return "'div'";
+                case "rem":
+                    return "'rem'";
+                default:
+                    return identifierName;
+            }
+        }
         // CIL requires that "literals" ( constants ) be propagated
         // This is not an optimization -- it is a requirement
-        private string LoadIdentityName(string identityName)
+        string LoadIdentityName(string identityName)
         {
-            //Console.Error.WriteLine("Loading identifier: " + identityName);
+            identityName = NameWithoutCollisions(identityName);
             string result;
-            //Console.Error.WriteLine("Checking in global constants: " + identityName);
             if (Program.Block.Constants.Exists(i => i.Name == identityName))
             {
-                //Console.Error.WriteLine("Found in global constants: " + identityName);
                 Identity constant = Program.Block.Constants.Single(i => i.Name == identityName);
                 result = LoadConstant(constant.Value);
             }
-            /*
-            else if (_proc.Block.Constants.Exists(i => i.Name == identityName))
-            {
-                Console.Error.WriteLine("Found in procedure constants: " + identityName);
-                Identity constant = _proc.Block.Constants.Single(i => i.Name == identityName);
-                result = LoadConstant(constant.Value);
-            }
-            */
             else if (_proc.Locals.Exists(i => i.Name == identityName))
             {
                 //Console.Error.WriteLine("Found as local variable: " + identityName);
@@ -346,8 +356,9 @@ namespace PLC
             return result;
         }
 
-        private string StoreIdentityName(string identityName)
+        string StoreIdentityName(string identityName)
         {
+            identityName = NameWithoutCollisions(identityName);
             string result;
             if (_proc.Locals.Exists(i => i.Name == identityName))
             {
@@ -476,7 +487,7 @@ namespace PLC
                 }
             }
         }
-        public IEnumerable<string> GenerateExpression(Expression expression)
+        IEnumerable<string> GenerateExpression(Expression expression)
         {
             if (expression is RandExpression)
             {
@@ -511,7 +522,7 @@ namespace PLC
             }
         }
 
-        public IEnumerable<string> GenerateRandExpression(RandExpression r)
+        IEnumerable<string> GenerateRandExpression(RandExpression r)
         {
             yield return "newobj instance void [mscorlib]System.Random::.ctor()";
             foreach (string s in GenerateExpression(r.LowExpression))
@@ -525,7 +536,7 @@ namespace PLC
             yield return "callvirt instance int32 [mscorlib]System.Random::Next(int32,int32)";
         }
 
-        public IEnumerable<string> GenerateFirstExpressionNode(ExpressionNode node)
+        IEnumerable<string> GenerateFirstExpressionNode(ExpressionNode node)
         {
             if (node.Term.IsSingleConstantFactor)
             {
@@ -557,7 +568,7 @@ namespace PLC
                 } 
             }
         }
-        public IEnumerable<string> GenerateExpressionNode(ExpressionNode node)
+        IEnumerable<string> GenerateExpressionNode(ExpressionNode node)
         {
             foreach (string s in GenerateTerm(node.Term))
             {
@@ -566,7 +577,7 @@ namespace PLC
             yield return node.IsPositive ? "add" : "sub";
         }
         
-        public IEnumerable<string> GenerateTerm(Term term)
+        IEnumerable<string> GenerateTerm(Term term)
         {
             var te = term.TermNodes.GetEnumerator();
             te.MoveNext();
@@ -603,7 +614,7 @@ namespace PLC
             */
             return "ldc.i4 " + c;
         }
-        public IEnumerable<string> GenerateFactor(Factor factor)
+        IEnumerable<string> GenerateFactor(Factor factor)
         {
             if (factor is ConstantFactor)
             {

@@ -8,21 +8,20 @@ using System.Collections.Generic;
 
 namespace PLC
 {
-    public class CLRGenerator
+    public class CLRGenerator : IGenerator
     {
-        private Procedure _proc;
+        readonly Dictionary<string, FieldBuilder> _globalTable;
+        readonly Dictionary<string, Dictionary<string, LocalBuilder>> _methodLocalsTable;
+        readonly Dictionary<string, MethodBuilder> _methodTable;
+        MethodBuilder _methodBuilder;
+        TypeBuilder _typeBuilder;
+        AssemblyBuilder _asmb;
+        ModuleBuilder _modb;
+        string _moduleName;
+        ILGenerator _il;
+        Procedure _proc;
 
-        private readonly AssemblyBuilder _asmb;
-        private ILGenerator _il;
-        private readonly ModuleBuilder _modb;
-        private readonly string _moduleName;
-        private readonly Dictionary<string, FieldBuilder> globalTable;
-        private static Dictionary<string, MethodBuilder> methodTable;
-        private readonly Dictionary<string, Dictionary<string, LocalBuilder>> methodLocalsTable;
-        private readonly TypeBuilder _typeBuilder;
-        private MethodBuilder _methodBuilder;
-
-        public CLRGenerator(ParsedProgram program, string moduleName = "program")
+        public CLRGenerator(ParsedProgram program)
         {
             Program = program;
             foreach (Identity constant in program.Block.Constants) {
@@ -31,20 +30,9 @@ namespace PLC
             foreach (Identity variable in program.Block.Variables) {
                 program.Globals.Add(variable);
             }
-            _moduleName = moduleName;
-            if (Path.GetFileName(moduleName) != moduleName)
-            {
-                throw new Exception("can only output into current directory!");
-            }
-
-            string filename = Path.GetFileNameWithoutExtension(moduleName);
-            AssemblyName asmName = new(filename);
-            _asmb = AppDomain.CurrentDomain.DefineDynamicAssembly(asmName, AssemblyBuilderAccess.Save);
-            _modb = _asmb.DefineDynamicModule(moduleName);
-            _typeBuilder = _modb.DefineType("plc");
-            globalTable = new Dictionary<string, FieldBuilder>();
-            methodTable = new Dictionary<string, MethodBuilder>();
-            methodLocalsTable = new Dictionary<string, Dictionary<string, LocalBuilder>>();
+            _globalTable = new Dictionary<string, FieldBuilder>();
+            _methodTable = new Dictionary<string, MethodBuilder>();
+            _methodLocalsTable = new Dictionary<string, Dictionary<string, LocalBuilder>>();
         }
         
         public ParsedProgram Program { get; }
@@ -54,8 +42,13 @@ namespace PLC
             yield return "Text output is not available for this back-end -- call Compile() to generate a binary";
         }
 
-        public int Compile()
+        public int Compile(string filename)
         {
+            _moduleName = Path.GetFileNameWithoutExtension(filename);
+            AssemblyName asmName = new(filename);
+            _asmb = AppDomain.CurrentDomain.DefineDynamicAssembly(asmName, AssemblyBuilderAccess.Save);
+            _modb = _asmb.DefineDynamicModule(_moduleName);
+            _typeBuilder = _modb.DefineType("plc");
             // Generate constant declarations
             foreach (Identity constant in Program.Block.Constants) {
                 var fieldBuilder = _typeBuilder.DefineField(constant.Name, typeof(int), FieldAttributes.Static | FieldAttributes.Private | FieldAttributes.Literal);
@@ -65,7 +58,7 @@ namespace PLC
             // Variable declarations
             foreach (Identity variable in Program.Block.Variables) {
                 var fieldBuilder = _typeBuilder.DefineField(variable.Name, typeof(int), FieldAttributes.Static | FieldAttributes.Private);
-                globalTable.Add(variable.Name, fieldBuilder);
+                _globalTable.Add(variable.Name, fieldBuilder);
             }
             
             // Procedure definitions
@@ -92,15 +85,15 @@ namespace PLC
             _proc = proc;
             _methodBuilder = _typeBuilder.DefineMethod(proc.Name, MethodAttributes.Static, typeof(void), Type.EmptyTypes);
             if (procIsEntryPoint) { _asmb.SetEntryPoint(_methodBuilder); }
-            methodTable[proc.Name] = _methodBuilder;
+            _methodTable[proc.Name] = _methodBuilder;
             _il = _methodBuilder.GetILGenerator();
             GenerateBlock(proc.Block);
             _il.Emit(OpCodes.Ret);
         }
-        public void GenerateBlock(Block block)
+        void GenerateBlock(Block block)
         {
             Dictionary<string, LocalBuilder> localTable = new();
-            methodLocalsTable[_proc.Name] = localTable;
+            _methodLocalsTable[_proc.Name] = localTable;
             foreach (Identity variable in block.Variables)
             {
                 localTable[variable.Name] = _il.DeclareLocal(typeof(int));
@@ -109,7 +102,7 @@ namespace PLC
             GenerateStatement(block.Statement);
         }
 
-        public void GenerateStatement(Statement statement)
+        void GenerateStatement(Statement statement)
         {
             if (statement is WriteStatement)
             {
@@ -136,14 +129,14 @@ namespace PLC
                 _il.Emit(OpCodes.Call,
                     typeof(Console).GetMethod("ReadLine", BindingFlags.Public | BindingFlags.Static, null,  new Type[] { }, null));
 
-                var localsTable = methodLocalsTable[_proc.Name];
+                var localsTable = _methodLocalsTable[_proc.Name];
                 if (localsTable.ContainsKey(readStatement.IdentityName))
                 {
                     _il.Emit(OpCodes.Ldloca, localsTable[readStatement.IdentityName]);
                 }
                 else
                 {
-                    _il.Emit(OpCodes.Ldsflda, globalTable[readStatement.IdentityName]);
+                    _il.Emit(OpCodes.Ldsflda, _globalTable[readStatement.IdentityName]);
                 }
                 // This typeof(int).MakeRefType() thing took me at least an hour to figure out :-)
                 _il.Emit(OpCodes.Call, typeof(int).GetMethod("TryParse", new[] { typeof(string), typeof(int).MakeByRefType()}));
@@ -158,7 +151,7 @@ namespace PLC
             else if (statement is CallStatement)
             {
                 var cs = (CallStatement) statement;
-                _il.Emit(OpCodes.Call, methodTable[cs.ProcedureName]);
+                _il.Emit(OpCodes.Call, _methodTable[cs.ProcedureName]);
             }
             else if (statement is CompoundStatement)
             {
@@ -200,7 +193,7 @@ namespace PLC
                 // "nop";
             }
         }
-        private void LoadIdentityName(string identityName)
+        void LoadIdentityName(string identityName)
         {   // CIL requires that "literals" ( constants ) be propagated
             // This is not an optimization -- it is a requirement
             if (Program.Block.Constants.Exists(i => i.Name == identityName))
@@ -210,28 +203,28 @@ namespace PLC
             }
             else
             {
-                var localTable = methodLocalsTable[_proc.Name];
+                var localTable = _methodLocalsTable[_proc.Name];
                 if (localTable.ContainsKey(identityName))
                 {
                     _il.Emit(OpCodes.Ldloc, localTable[identityName]);
                 }
                 else
                 {
-                    _il.Emit(OpCodes.Ldsfld, globalTable[identityName]);
+                    _il.Emit(OpCodes.Ldsfld, _globalTable[identityName]);
                 }
             }
         }
 
-        private void StoreIdentityName(string identityName)
+        void StoreIdentityName(string identityName)
         {
-            var localTable = methodLocalsTable[_proc.Name];
+            var localTable = _methodLocalsTable[_proc.Name];
             if (localTable.ContainsKey(identityName))
             {
                 _il.Emit(OpCodes.Stloc, localTable[identityName]);
             }
             else
             {
-                _il.Emit(OpCodes.Stsfld, globalTable[identityName]);
+                _il.Emit(OpCodes.Stsfld, _globalTable[identityName]);
             }
         }
         void BranchWhenTrue(Condition condition, Label label)
@@ -332,7 +325,7 @@ namespace PLC
                 }
             }
         }
-        public void GenerateExpression(Expression expression)
+        void GenerateExpression(Expression expression)
         {
             if (expression is RandExpression)
             {
@@ -358,7 +351,7 @@ namespace PLC
             }
         }
 
-        public void GenerateRandExpression(RandExpression r)
+        void GenerateRandExpression(RandExpression r)
         {
             // This took me forever - I was calling typeof(Random).GetConstructor() and that does not work
             _il.Emit(OpCodes.Newobj, typeof(Random).GetConstructors()[0]);
@@ -367,7 +360,7 @@ namespace PLC
             _il.Emit(OpCodes.Callvirt, typeof(Random).GetMethod("Next", new[] {typeof(int), typeof(int)}));
         }
 
-        public void GenerateFirstExpressionNode(ExpressionNode node)
+        void GenerateFirstExpressionNode(ExpressionNode node)
         {
             if (node.Term.IsSingleConstantFactor)
             {
@@ -395,13 +388,13 @@ namespace PLC
                 } 
             }
         }
-        public void GenerateExpressionNode(ExpressionNode node)
+        void GenerateExpressionNode(ExpressionNode node)
         {
             GenerateTerm(node.Term);
             _il.Emit(node.IsPositive ? OpCodes.Add : OpCodes.Sub );
         }
         
-        public void GenerateTerm(Term term)
+        void GenerateTerm(Term term)
         {
             var te = term.TermNodes.GetEnumerator();
             te.MoveNext();
@@ -439,7 +432,7 @@ namespace PLC
                 break;
             }
         }
-        public void GenerateFactor(Factor factor)
+        void GenerateFactor(Factor factor)
         {
             if (factor is ConstantFactor)
             {

@@ -6,9 +6,9 @@ using System.Collections.Generic;
 
 namespace PLC
 {
-    public class CGenerator
+    public class CGenerator : IGenerator
     {
-        private readonly Dictionary<ConditionType, string> _conditionDict = new()
+        readonly Dictionary<ConditionType, string> _conditionDict = new()
         {
             {ConditionType.Equal, "=="},
             {ConditionType.NotEqual, "!="},
@@ -24,7 +24,7 @@ namespace PLC
         
         public ParsedProgram Program { get; set; }
 
-        public int Compile()
+        public int Compile(string filename)
         {
             return 1;
         }
@@ -112,7 +112,7 @@ namespace PLC
             yield return "    return 0; /* Success! */";
             yield return "}";
         }
-        public IEnumerable<string> GenerateBlock(Block block)
+        IEnumerable<string> GenerateBlock(Block block)
         {
             string constants = GenerateConstantDeclarations(block.Constants);
             if (constants != String.Empty)
@@ -132,7 +132,7 @@ namespace PLC
             }
         }
 
-        public string GenerateConstantDeclarations(List<Identity> constants)
+        string GenerateConstantDeclarations(List<Identity> constants)
         {
             int c = constants.Count;
             if (c == 0)
@@ -158,7 +158,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateVariableDeclarations(List<Identity> variables)
+        string GenerateVariableDeclarations(List<Identity> variables)
         {
             int c = variables.Count;
             if (c == 0)
@@ -186,7 +186,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public IEnumerable<string> GenerateStatement(Statement statement)
+        IEnumerable<string> GenerateStatement(Statement statement)
         {
             if (statement is WriteStatement)
             {
@@ -197,7 +197,7 @@ namespace PLC
                 }
                 else
                 {
-                    yield return "printf(\"" + writeStatement.Message + "\\n\");";
+                    yield return "puts(\"" + writeStatement.Message + "\");";
                 }
             }
             else if (statement is ReadStatement)
@@ -205,7 +205,7 @@ namespace PLC
                 var readStatement = (ReadStatement) statement;
                 if (readStatement.Message != String.Empty)
                 {
-                    yield return "printf(\"" + readStatement.Message + "\");";
+                    yield return "fputs(\"" + readStatement.Message + "\", stdout);";
                 }
                 yield return "scanf(\"%d\", &" + readStatement.IdentityName + ");";
             }
@@ -279,7 +279,7 @@ namespace PLC
             }
         }
 
-        public string GenerateExpression(Expression expression)
+        string GenerateExpression(Expression expression)
         {
             if (expression is RandExpression)
             {
@@ -304,7 +304,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        private string GenerateRandExpression(RandExpression r)
+        string GenerateRandExpression(RandExpression r)
         {
             string lowString, highString;
 
@@ -326,7 +326,7 @@ namespace PLC
             return "(rand() % " + highString + ") + " + lowString;
         }
 
-        private string GenerateFirstExpressionNode(ExpressionNode node)
+        string GenerateFirstExpressionNode(ExpressionNode node)
         {
             /*
             if (node == null)
@@ -336,7 +336,7 @@ namespace PLC
             */
             return (node.IsPositive ? String.Empty : "-") + GenerateTerm(node.Term);
         }
-        private string GenerateExpressionNode(ExpressionNode node)
+        string GenerateExpressionNode(ExpressionNode node)
         {
             /*
             if (node == null)
@@ -347,7 +347,7 @@ namespace PLC
             return  (node.IsPositive ? "+" : "-") + GenerateTerm(node.Term);
         }
         
-        private string GenerateTerm(Term term)
+        string GenerateTerm(Term term)
         {
             /*
             if (term == null)
@@ -367,7 +367,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateFactor(Factor factor)
+        string GenerateFactor(Factor factor)
         {
             if (factor == null)
             {
@@ -396,7 +396,7 @@ namespace PLC
             throw new Exception("Could not generate factor");
         }
 
-        public string GenerateCondition(Condition condition)
+        string GenerateCondition(Condition condition)
         {
             switch (condition.Type)
             {

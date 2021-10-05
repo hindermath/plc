@@ -10,7 +10,7 @@ using System.Security.Authentication.ExtendedProtection;
 
 namespace PLC
 {
-    public class CSharpGenerator
+    public class CSharpGenerator : IGenerator
     {
         readonly Dictionary<ConditionType, string> _conditionDict = new()
         {
@@ -28,7 +28,7 @@ namespace PLC
         
         public ParsedProgram Program { get; set; }
 
-        public int Compile()
+        public int Compile(string filename)
         {
             return 1;
         }
@@ -99,9 +99,8 @@ namespace PLC
 
             foreach (string s in GenerateStatement(Program.Block.Statement))
             {
-                yield return "        " + s;
+                yield return "    " + s;
             }
-
             yield return "    }";
             yield return "}";
         }
@@ -222,7 +221,7 @@ namespace PLC
                     {
                         foreach (string s in GenerateStatement(st))
                         {
-                            yield return s;
+                            yield return "    " + s;
                         }
                     }
                 }
@@ -244,13 +243,13 @@ namespace PLC
                 if (dw.Condition.Type == ConditionType.True)
                 {
                     yield return "for (;;) {";
-                    foreach (string s in GenerateStatement(dw.Statement)) yield return "    " + s;
+                    foreach (string s in GenerateStatement(dw.Statement)) yield return s;
                     yield return "}";
                 }
                 else
                 {
                     yield return "do {";
-                    foreach (string s in GenerateStatement(dw.Statement)) yield return "    " + s;
+                    foreach (string s in GenerateStatement(dw.Statement)) yield return s;
                     yield return "} while (" + GenerateCondition(dw.Condition) + ");";
                 }
             }
@@ -262,7 +261,7 @@ namespace PLC
                     "while (" + GenerateCondition(ws.Condition) + ") {";
                 foreach (string s in GenerateStatement(ws.Statement))
                 {
-                    yield return "    " + s;
+                    yield return s;
                 }
                 yield return "}";
             }
