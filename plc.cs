@@ -8,23 +8,63 @@ namespace PLC
     {
         static void Main(string[] args)
         {
-            IEnumerable<Token> tokens = new List<Token>();
-            string filename;
-            if (args.Length > 0)
+            if (args.Length == 0)
             {
-                filename = args[0];
+                Console.WriteLine("Usage: plc inputfile outputfile");
+                return;
+            }
+            IEnumerable<Token> tokens = new List<Token>();
+            string inFilename = args[0];
+
+            string outFilename;
+            if (args.Length > 1)
+            {
+                outFilename = args[1];
+                if (Path.GetFileName(outFilename) != outFilename)
+                {
+                    throw new Exception("can only output into current directory!");
+                }
             }
             else
             {
-                filename = @"test.p";
+                outFilename = Path.GetFileNameWithoutExtension(inFilename) + ".exe";
             }
-            using (var fileStream = new FileStream(filename, FileMode.Open)) {
+            string extension = Path.GetExtension(outFilename);
+            using (var fileStream = new FileStream(inFilename, FileMode.Open)) {
                 ParsedProgram program = new Parser().Parse(new Scanner().Scan(fileStream));
                 program = new Optimizer().Optimize(program);
-
-                CLRGenerator generator = new(program);
+                IGenerator generator;
+                switch (extension)
+                {
+                    case ".p":
+                        generator = new PL0Generator(program);
+                        break;
+                    case ".bas":
+                        generator = new BasicGenerator(program);
+                        break;
+                    case ".il":
+                    case ".cil":
+                    case ".msil":
+                        generator = new CIL_Generator(program);
+                        break;
+                    case ".c":
+                        generator = new CGenerator(program);
+                        break;
+                    case ".cs":
+                        generator = new CSharpGenerator(program);
+                        break;
+                    default:
+                        generator = new CLRGenerator(program);
+                        break;
+                }
                 foreach (string s in generator.Generate()) Console.WriteLine(s);
-                generator.Compile();
+                generator.Compile(outFilename);
+                if (!(generator is CLRGenerator))
+                {
+                    outFilename = Path.GetFileNameWithoutExtension(inFilename) + ".exe";
+                    generator = new CLRGenerator(program);
+                    generator.Compile(outFilename);
+                }
             }
         }
         
