@@ -9,9 +9,9 @@ using System.Security.Authentication.ExtendedProtection;
 
 namespace PLC
 {
-    public class PL0Generator
+    public class PL0Generator : IGenerator
     {
-        private readonly Dictionary<ConditionType, string> _conditionDict = new()
+        readonly Dictionary<ConditionType, string> _conditionDict = new()
         {
             {ConditionType.Equal, "="},
             {ConditionType.NotEqual, "#"},
@@ -27,7 +27,7 @@ namespace PLC
         
         public ParsedProgram Program { get; set; }
 
-        public int Compile()
+        public int Compile(string filename)
         {
             return 1;
         }
@@ -113,7 +113,7 @@ namespace PLC
                 }
             }
         }
-        public IEnumerable<string> GenerateBlock(Block block)
+        IEnumerable<string> GenerateBlock(Block block)
         {
             string constants = GenerateConstantDeclarations(block.Constants);
             if (constants != String.Empty)
@@ -131,29 +131,9 @@ namespace PLC
             {
                 yield return s;
             }
-            /*
-            var lines = GenerateStatement(block.Statement);
-            
-            yield return "BEGIN";
-            var enumerator = GenerateStatement(block.Statement).GetEnumerator();
-            bool keepGoing = enumerator.MoveNext();
-            while (keepGoing)
-            {
-                string currentLine = enumerator.Current;
-                if (enumerator.MoveNext())
-                {
-                    yield return "    " + currentLine + ";";
-                } else
-                {
-                    keepGoing = false;
-                    yield return "    " + currentLine;
-                }
-            }
-            yield return "END";
-            */
         }
 
-        public string GenerateConstantDeclarations(List<Identity> constants)
+        string GenerateConstantDeclarations(List<Identity> constants)
         {
             int c = constants.Count;
             if (c == 0)
@@ -179,7 +159,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateVariableDeclarations(List<Identity> variables)
+        string GenerateVariableDeclarations(List<Identity> variables)
         {
             int c = variables.Count;
             if (c == 0)
@@ -207,7 +187,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public IEnumerable<string> GenerateStatement(Statement statement)
+        IEnumerable<string> GenerateStatement(Statement statement)
         {
             if (statement is WriteStatement)
             {
@@ -247,45 +227,55 @@ namespace PLC
             else if (statement is CompoundStatement)
             {
                 var bs = (CompoundStatement) statement;
-                yield return "BEGIN";
-                var statement_enumerator = bs.Statements.GetEnumerator();
-                bool moreStatements = statement_enumerator.MoveNext();
-                while (moreStatements)
+                if (bs.Statements.Count == 1)
                 {
-                    var currentStatement = statement_enumerator.Current;
-                    if (currentStatement.SkipGeneration)
+                    foreach (string line in GenerateStatement(bs.Statements.First()))
                     {
-                        moreStatements = statement_enumerator.MoveNext();
+                        yield return line;
                     }
-                    else
+                }
+                else
+                {
+                    yield return "BEGIN";
+                    var statement_enumerator = bs.Statements.GetEnumerator();
+                    bool moreStatements = statement_enumerator.MoveNext();
+                    while (moreStatements)
                     {
-                        var line_enumerator = GenerateStatement(currentStatement).GetEnumerator();
-                        bool moreLines = line_enumerator.MoveNext();
-                        while (moreLines)
+                        var currentStatement = statement_enumerator.Current;
+                        if (currentStatement.SkipGeneration)
                         {
-                            string line = line_enumerator.Current;
-                            if (line_enumerator.MoveNext())
+                            moreStatements = statement_enumerator.MoveNext();
+                        }
+                        else
+                        {
+                            var line_enumerator = GenerateStatement(currentStatement).GetEnumerator();
+                            bool moreLines = line_enumerator.MoveNext();
+                            while (moreLines)
                             {
-                                yield return "    " + line;
-                            }
-                            else
-                            {
-                                moreLines = false;
-                                moreStatements = statement_enumerator.MoveNext();
-                                if (moreStatements)
-                                {
-                                    yield return "    " + line + ";";
-                                }
-                                else
+                                string line = line_enumerator.Current;
+                                if (line_enumerator.MoveNext())
                                 {
                                     yield return "    " + line;
                                 }
+                                else
+                                {
+                                    moreLines = false;
+                                    moreStatements = statement_enumerator.MoveNext();
+                                    if (moreStatements)
+                                    {
+                                        yield return "    " + line + ";";
+                                    }
+                                    else
+                                    {
+                                        yield return "    " + line;
+                                    }
                             
+                                }
                             }
                         }
                     }
+                    yield return "END";
                 }
-                yield return "END";
             }
             else if (statement is IfStatement)
             {
@@ -348,7 +338,7 @@ namespace PLC
             }
         }
 
-        public string GenerateExpression(Expression expression)
+        string GenerateExpression(Expression expression)
         {
             if (expression is RandExpression)
             {
@@ -373,23 +363,23 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateRandExpression(RandExpression r)
+        string GenerateRandExpression(RandExpression r)
         {
             string low = GenerateExpression(r.LowExpression);
             string high = GenerateExpression(r.HighExpression);
             return "RAND " + low + " " + high;
         }
 
-        public string GenerateFirstExpressionNode(ExpressionNode node)
+        string GenerateFirstExpressionNode(ExpressionNode node)
         {
             return (node.IsPositive ? String.Empty : "-") + GenerateTerm(node.Term);
         }
-        public string GenerateExpressionNode(ExpressionNode node)
+        string GenerateExpressionNode(ExpressionNode node)
         {
             return  (node.IsPositive ? "+" : "-") + GenerateTerm(node.Term);
         }
         
-        public string GenerateTerm(Term term)
+        string GenerateTerm(Term term)
         {
             StringBuilder sb = new();
             var te = term.TermNodes.GetEnumerator();
@@ -403,7 +393,7 @@ namespace PLC
             return sb.ToString();
         }
 
-        public string GenerateFactor(Factor factor)
+        string GenerateFactor(Factor factor)
         {
             if (factor == null)
             {
@@ -432,7 +422,7 @@ namespace PLC
             throw new Exception("Could not generate factor");
         }
 
-        public string GenerateCondition(Condition condition)
+        string GenerateCondition(Condition condition)
         {
             if (condition is BinaryCondition)
             {
