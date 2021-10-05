@@ -7,16 +7,18 @@ namespace PLC
 {
     public partial class Parser
     {
-        private Token current, next;
-        private IEnumerator<Token>? enumerator;
-        private ParsedProgram Program;
+        Token current, next;
+        IEnumerator<Token>? enumerator;
+        ParsedProgram Program;
+        List<string> symbols;
 
-        private string[] keywords = new string[]
+        string[] keywords = new string[]
             {"CONST", "VAR", "PROCEDURE", "BEGIN", "END", "IF", "THEN", "DO", "WHILE", "CALL", "ODD", "READ", "WRITE", "FOR", "TO", "STEP", "RAND"};
 
         public Parser()
         {
             Program = new ParsedProgram();
+            symbols = new List<string>();
         }
 
         public ParsedProgram Parse(IEnumerable<Token> tokens)
@@ -29,7 +31,7 @@ namespace PLC
             return Program;
         }
         
-        private IEnumerable<Token> MarkKeywords(IEnumerable<Token> tokens)
+        IEnumerable<Token> MarkKeywords(IEnumerable<Token> tokens)
         {
             foreach (var token in tokens)
             {
@@ -45,27 +47,6 @@ namespace PLC
                 }
 
                 yield return newtoken;
-            }
-        }
-        
-        private string NameWithoutCollisions(string identifierName)
-        {
-            switch (identifierName)
-            {
-                case "ret":
-                    return "__ret";
-                case "add":
-                    return "__add";
-                case "sub":
-                    return "__sub";
-                case "mul":
-                    return "__mul";
-                case "div":
-                    return "__div";
-                case "rem":
-                    return "__rem";
-                default:
-                    return identifierName;
             }
         }
     }

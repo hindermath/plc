@@ -5,9 +5,8 @@ namespace PLC
 {
     public partial class Optimizer
     {
-        Factor OptimizeFactor(Factor factor)
+        Factor OptimizeFactor(Factor factor, bool countReferences = true)
         {
-            //Console.WriteLine("Optimizing factor");
             if (factor is IdentityFactor)
             {
                 var iff = (IdentityFactor) factor;
@@ -25,24 +24,26 @@ namespace PLC
                 {
                     ;
                 }
-
-                // If it is a variable, increment the number of times it has been referenced
-                try
+                if (countReferences)
                 {
-                    var identity = _block.Variables.Single(x => x.Name == name);
-                    identity.ReferenceCount++;
-                    identity.IdentityFactors.Add(iff);
-                }
-                catch
-                {
-                    ;
+                    // If it is a variable, increment the number of times it has been referenced
+                    try
+                    {
+                        var identity = _block.Variables.Single(x => x.Name == name);
+                        identity.ReferenceCount++;
+                        identity.IdentityFactors.Add(iff);
+                    }
+                    catch
+                    {
+                        ;
+                    }
                 }
             }
 
             if (factor is ExpressionFactor)
             {
                 var ef = (ExpressionFactor) factor;
-                ef.Expression = OptimizeExpression(ef.Expression);
+                ef.Expression = OptimizeExpression(ef.Expression, countReferences);
                 // Convert ExpressionFactor to ConstantFactor constant
                 if (ef.Expression.IsSingleConstantFactor)
                 {

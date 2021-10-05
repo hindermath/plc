@@ -79,7 +79,7 @@ namespace PLC
                     ExpectAndConsume("WHILE");
                     if (next.Text == ":=") // If := then this is a FOR statement
                     {
-                        return ParseForStaatement();
+                        return ParseForStatement();
                     }
                     else  // A traditional WHILE statement
                     {
@@ -93,15 +93,19 @@ namespace PLC
                     ExpectAndConsumeTerminator();
                     return new EmptyStatement();
                 default: // Assignment
-                    AssignmentStatement ass = new();
-                    ass.IdentityName = ParseIdentifier();
+                    AssignmentStatement s = new();
+                    s.IdentityName = ParseIdentifier();
+                    if (!symbols.Contains(s.IdentityName))
+                    {
+                        throw new System.Exception("Assignment to undeclared identifier " + s.IdentityName + " at line " + current.LineNumber);
+                    }
                     ExpectAndConsume(":=");
-                    ass.Expression = ParseExpression();
-                    return ass;
+                    s.Expression = ParseExpression();
+                    return s;
             }
         }
 
-        Statement ParseForStaatement()
+        Statement ParseForStatement()
         { 
             CompoundStatement forStatement = new();
             string identifierName = ParseIdentifier();

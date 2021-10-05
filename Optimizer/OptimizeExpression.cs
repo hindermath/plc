@@ -6,7 +6,7 @@ namespace PLC
 {
     public partial class Optimizer
     {
-        ExpressionNode OptimizeExpressionNode(ExpressionNode node)
+        ExpressionNode OptimizeExpressionNode(ExpressionNode node, bool countReferences = true)
         {
             node.Term = OptimizeTerm(node.Term);
             
@@ -31,13 +31,14 @@ namespace PLC
             return node;
         }
 
-        Expression OptimizeExpression(Expression expression)
+        Expression OptimizeExpression(Expression expression, bool countReferences = true)
         {
             // Do not try to optimize if already a simple constant
             if (expression.IsSingleConstantFactor)
             {
                 return expression;
             }
+
             List<ExpressionNode> optimizedNodes = new();
             int constantResult = 0;
             foreach (var n in expression.ExpressionNodes)
@@ -70,12 +71,13 @@ namespace PLC
                 TermNode tn = new();
                 en.Term = new Term();
                 en.Term.TermNodes.Add(tn);
-                tn.Factor = new ConstantFactor() { Value = Math.Abs(constantResult).ToString() };
+                tn.Factor = new ConstantFactor() {Value = Math.Abs(constantResult).ToString()};
                 tn.IsDivision = false;
 
                 en.IsPositive = constantResult >= 0;
                 optimizedNodes.Add(en);
             }
+
             expression.ExpressionNodes = optimizedNodes;
             return expression;
         }

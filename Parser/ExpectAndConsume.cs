@@ -41,7 +41,7 @@ namespace PLC
             {
                 string s = current.Text;
                 MoveNext();
-                return NameWithoutCollisions(s);
+                return s;
             }
             throw new Exception("Expected an identifier but got [" + current.Type + ":" + current.Text + "] at line " + current.LineNumber);
         }

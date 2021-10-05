@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Linq;
 using System.Collections.Generic;
 
@@ -6,11 +7,13 @@ namespace PLC
 {
     public partial class Optimizer
     {
-        private Block _block;
+        Block _block;
+        bool _inMain;
 
         public Optimizer()
         {
             _block = new Block();
+            _inMain = false;
         }
 
         public ParsedProgram Optimize(ParsedProgram program)
@@ -20,10 +23,12 @@ namespace PLC
             List<Procedure> procsToRemove = new();
             foreach (var proc in _block.Procedures)
             {
+                _inMain = false;
                 proc.Block = OptimzeBlock(proc.Block);
                 OptimzeProcedureTailCall(proc);
             }
-            program.Block = OptimzeBlock(_block);
+            
+            _block = OptimzeBlock(_block);
 
             foreach (var proc in _block.Procedures)
             {
@@ -36,11 +41,29 @@ namespace PLC
             {
                 _block.Procedures.Remove(procToRemove);
             }
-
+            //PrintReferences();
+            ClearReferences();
+            foreach (var proc in _block.Procedures)
+            {
+                _inMain = false;
+                proc.Block = OptimzeBlock(proc.Block);
+                OptimzeProcedureTailCall(proc);
+            }
+            _inMain = false;
+            _block = OptimzeBlock(_block);
+            //PrintReferences();
+            foreach (var variable in _block.Variables)
+            {
+                if (variable.ReferenceCount == 1 && variable.AssignmentStatements.Count == 1)
+                {
+                    EliminateSingleAssignment(((CompoundStatement) _block.Statement).Statements, variable.Name);
+                    variable.ReferenceCount--;
+                }
+            }
+            //PrintReferences();
             List<Identity> variablesToRemove = new();
             foreach (var variable in _block.Variables)
             {
-                //Console.WriteLine("{0} is assigned {1} times and called {2} times", variable.Name, variable.AssignmentCount, variable.ReferenceCount);
                 if (variable.ReferenceCount == 0)
                 {
                     variablesToRemove.Add(variable);
@@ -54,10 +77,29 @@ namespace PLC
                 }
                 _block.Variables.Remove(variable);
             }
-            
-            program.Block.Constants.Clear();
+            //PrintReferences();
+            _block.Constants.Clear();
+            program.Block = _block;
             return program;
-        }        
+        }
+
+        void PrintReferences()
+        {
+            foreach (var variable in _block.Variables)
+            {
+                System.Console.WriteLine("{0} is assigned {1} times and called {2} times", variable.Name,
+                    variable.AssignmentStatements.Count, variable.ReferenceCount);
+            }
+        }
+
+        void ClearReferences()
+        {
+            foreach (var variable in _block.Variables)
+            {
+                variable.AssignmentStatements.Clear();
+                variable.ReferenceCount = 0;
+            }
+        }
         
         // Convert procedure call into a loop for a very specific case
         void OptimzeProcedureTailCall(Procedure proc)

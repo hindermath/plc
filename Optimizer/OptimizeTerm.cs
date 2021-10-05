@@ -6,7 +6,7 @@ namespace PLC
 {
     public partial class Optimizer
     {
-        Term OptimizeTerm(Term term)
+        Term OptimizeTerm(Term term, bool countReferences = true)
         {
             List<TermNode> optimizedNodes = new();
             
@@ -18,7 +18,7 @@ namespace PLC
                 int divResult = 1;
                 foreach (var n in term.TermNodes)
                 {
-                    var node = OptimizeTermNode(n);
+                    var node = OptimizeTermNode(n, countReferences);
                     if (node.Factor is ConstantFactor)
                     {
                         var cf = (ConstantFactor) node.Factor;
@@ -33,7 +33,7 @@ namespace PLC
                     }
                     else
                     {
-                        optimizedNodes.Add(OptimizeTermNode(node));
+                        optimizedNodes.Add(OptimizeTermNode(node, countReferences));
                     }
                 }
 
@@ -72,16 +72,16 @@ namespace PLC
             }
             else
             {
-                optimizedNodes.Add(OptimizeTermNode(term.TermNodes[0]));
+                optimizedNodes.Add(OptimizeTermNode(term.TermNodes[0], countReferences));
             }
 
             term.TermNodes = optimizedNodes;
             return term;
         }
         
-        TermNode OptimizeTermNode(TermNode node)
+        TermNode OptimizeTermNode(TermNode node, bool countReferences = true)
         {
-            node.Factor = OptimizeFactor(node.Factor);
+            node.Factor = OptimizeFactor(node.Factor, countReferences);
             return node;
         }
     }

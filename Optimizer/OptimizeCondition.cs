@@ -4,12 +4,12 @@ namespace PLC
 {
     public partial class Optimizer
     {
-        Condition OptimizeCondition(Condition condition)
+        Condition OptimizeCondition(Condition condition, bool countReferences = true)
         {
             if (condition is OddCondition)
             {
                 var oc = (OddCondition) condition;
-                oc.Expression = OptimizeExpression(oc.Expression);
+                oc.Expression = OptimizeExpression(oc.Expression, countReferences);
                 if (oc.Expression.IsSingleConstantFactor)
                 {
                     ConstantFactor constant = (ConstantFactor) oc.Expression.ExpressionNodes[0].Term.FirstFactor;
@@ -28,8 +28,8 @@ namespace PLC
             else if (condition is BinaryCondition)
             {
                 var bc = (BinaryCondition) condition;
-                bc.FirstExpression = OptimizeExpression(bc.FirstExpression);
-                bc.SecondExpression = OptimizeExpression((bc.SecondExpression));
+                bc.FirstExpression = OptimizeExpression(bc.FirstExpression, countReferences);
+                bc.SecondExpression = OptimizeExpression((bc.SecondExpression), countReferences);
                 if (bc.FirstExpression.IsSingleConstantFactor && bc.SecondExpression.IsSingleConstantFactor)
                 {
                     ConstantFactor first = (ConstantFactor) bc.FirstExpression.ExpressionNodes[0].Term.FirstFactor;
