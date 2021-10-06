@@ -70,6 +70,7 @@ namespace PLC
                         break;
                     case ' ':
                     case '\n':
+                    case '\r':
                     case '\t':
                         if (current == '\n') token.LineNumber++;
                         tb.Clear();
@@ -84,7 +85,7 @@ namespace PLC
                         yield return token;
                         break;
                     case ',':
-                        token.Type = TokenType.Seperator;
+                        token.Type = TokenType.Separator;
                         token.Text = ",";
                         tb.Clear();
                         yield return token;
